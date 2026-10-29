@@ -1,0 +1,22 @@
+[project]
+name = "Endoscope"
+version = "0.1.0"
+description = "Datamining tool for Endacopia (and maybe other AGS 3.6.0 games)"
+readme = "README.md"
+authors = [
+    { name = "bequidox74", email = "aw4yland04@proton.me" }
+]
+requires-python = ">=3.15"
+dependencies = []
+
+[tool.pyrefly]
+project-includes = [
+    "**/*.py*",
+]
+
+[project.scripts]
+endoscope = "endoscope:main"
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
