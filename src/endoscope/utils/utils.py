@@ -1,4 +1,5 @@
-from typing import BinaryIO
+from pathlib import Path
+from typing import BinaryIO, Literal
 
 
 def chunked_copy(
@@ -15,3 +16,10 @@ def chunked_copy(
         chunk = src.read(min(chunk_size, left))
         dst.write(chunk)
         copied += len(chunk)
+
+
+def detect_file_type(path: Path) -> Literal["clib", "exe"]:
+    if path.suffix == ".exe":
+        return "exe"
+    else:
+        return "clib"

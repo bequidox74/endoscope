@@ -4,10 +4,10 @@ from argparse import ArgumentParser, Namespace
 from fnmatch import fnmatch
 from pathlib import Path
 
-from endoscope.data.clib import CLib
+from endoscope.data.clib import Clib
 from endoscope.utils import utils
 
-logger = logging.root
+logger = logging.getLogger(__name__)
 
 CHUNK_SIZE_KIB = 64
 
@@ -20,7 +20,7 @@ def init_parser(subp) -> None:
     parser.add_argument(
         "input",
         type=Path,
-        help="input file (.exe)",
+        help="input file (.exe, .ags, .vox)",
     )
     parser.add_argument(
         "output",
@@ -59,13 +59,14 @@ def init_parser(subp) -> None:
 
 
 def main(args: Namespace) -> None:
-    pin: Path = args.input
-    pout: Path = args.output
-    include: list[str] = args.include
-    exclude: list[str] = args.exclude
-    chunk_size: int = args.chunk_size
-    dry_run: bool = args.dry_run
-    unpack(pin, pout, include, exclude, chunk_size, dry_run)
+    unpack(
+        pin=args.input,
+        pout=args.output,
+        include=args.include,
+        exclude=args.exclude,
+        chunk_size=args.chunk_size,
+        dry_run=args.dry_run,
+    )
 
 
 def unpack(
@@ -76,7 +77,7 @@ def unpack(
     chunk_size: int,
     dry_run: bool,
 ) -> None:
-    clib, off_clib = CLib.read_exe(pin)
+    clib, off_clib = Clib.read_file(pin)
     logger.info("CLIB v%d with %d files", clib.version, len(clib.files))
     count = 0
     for f in clib.files:
