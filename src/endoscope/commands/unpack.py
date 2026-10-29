@@ -85,7 +85,8 @@ def unpack(
             continue
 
         if not dry_run:
-            os.makedirs(pout, exist_ok=True)
+            pout_full = pout / f.name
+            os.makedirs(pout_full.parent, exist_ok=True)
             with open(pin, "rb") as sin, open(pout / f.name, "wb") as sout:
                 offset = off_clib + f.offset
                 utils.chunked_copy(sin, sout, offset, f.size, chunk_size)
