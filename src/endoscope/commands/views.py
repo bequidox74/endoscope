@@ -71,13 +71,13 @@ def _init_export(subp: _SubParsersAction) -> None:
     )
 
     parser.add_argument(
-        "-f",
-        "--flat",
+        "-d",
+        "--dirs",
         action="store_true",
-        help="do not group loops into directories and use prefixes instead",
+        help="group loops into directories instead of prefixes",
     )
 
-    filters_group = parser.add_mutually_exclusive_group(required=True)
+    filters_group = parser.add_mutually_exclusive_group()
     filters_group.add_argument("-i", "--include", help="views to include")
     filters_group.add_argument("-e", "--exclude", help="views to exclude")
 
@@ -209,15 +209,18 @@ def _main_info(args: Namespace) -> None:
 def _main_export(args: Namespace) -> None:
     if args.include is not None:
         ranges = utils.parse_ranges(args.include)
-    else:
+    elif args.exclude is not None:
         ranges = utils.parse_ranges(args.exclude)
+    else:
+        ranges = []
+
     ve = ViewsExporter(
         args.input,
         args.output,
         args.sprite_dir,
         ranges,
-        args.exclude is not None,
-        args.flat,
+        args.exclude is not None or not ranges,
+        args.dirs,
     )
     ve.export_views()
 
@@ -230,20 +233,21 @@ class ViewsExporter:
         sprdir: Path,
         ranges: list[range],
         exclude: bool,
-        flat: bool,
+        dirs: bool,
     ) -> None:
         self.pin = pin
         self.pout = pout
         self.sprdir = sprdir
         self.ranges = ranges
         self.exclude = exclude
-        self.flat = flat
+        self.dirs = dirs
 
         self.spridx_path = self.sprdir / INDEX_FILE_NAME
         self.index: dict = {}
         self.gd: GameData
 
     def export_views(self) -> None:
+        check(self.sprdir.exists(), "sprite directory does not exist")
         check(self.sprdir.is_dir(), "sprite directory is not a directory")
         self._prepare_index()
 
@@ -293,10 +297,10 @@ class ViewsExporter:
 
         os.makedirs(view_dir, exist_ok=True)
         for li, loop in enumerate(view.loops):
-            if self.flat:
-                loop_dir = view_dir
-            else:
+            if self.dirs:
                 loop_dir = view_dir / str(li)
+            else:
+                loop_dir = view_dir
             os.makedirs(loop_dir, exist_ok=True)
 
             for fi, frame in enumerate(loop.frames):
@@ -310,7 +314,7 @@ class ViewsExporter:
                 suffix = src_abspath.suffix
 
                 out_name = f"{fi}{suffix}"
-                if self.flat:
+                if not self.dirs:
                     out_name = f"{li}_{out_name}"
 
                 shutil.copyfile(src_abspath, loop_dir / out_name)
@@ -338,6 +342,6 @@ def _build_sprite_index(sprdir: Path) -> dict:
         relpath = str(p.relative_to(sprdir))
         if relpath in out:
             raise RuntimeError(f"duplicate files: {relpath} and {out[n]}")
-        out[n] = relpath
+        out[str(n)] = relpath
 
     return out
