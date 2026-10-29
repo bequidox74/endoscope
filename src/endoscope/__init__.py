@@ -1,7 +1,7 @@
 import logging
 from argparse import ArgumentParser
 
-from endoscope.commands import unpack, views
+from endoscope.commands import data, unpack, views
 
 
 def main() -> None:
@@ -19,6 +19,7 @@ def main() -> None:
     subp = parser.add_subparsers(title="commands", required=True)
     unpack.init_parser(subp)
     views.init_parser(subp)
+    data.init_parser(subp)
 
     args = parser.parse_args()
     logging.basicConfig(format="%(message)s", level=logging.INFO)
