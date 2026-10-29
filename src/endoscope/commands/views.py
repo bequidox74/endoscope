@@ -305,12 +305,13 @@ class ViewsExporter:
             os.makedirs(loop_dir, exist_ok=True)
 
             for fi, frame in enumerate(loop.frames):
+                frame_image = str(frame.image)
                 try:
-                    src_relpath = self.index[str(frame.image)]
-                except KeyError as exc:
-                    raise KeyError(
-                        f"sprite {frame.image} not found in index", exc
-                    ) from exc
+                    src_relpath = self.index[frame_image]
+                except KeyError:
+                    logger.error("Error: sprite %s not found in index", frame_image)
+                    continue
+
                 src_abspath = self.sprdir.joinpath(src_relpath)
                 suffix = src_abspath.suffix
 
