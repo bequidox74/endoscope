@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+import shutil
 from argparse import ArgumentParser, Namespace, _SubParsersAction
 from pathlib import Path
 
@@ -7,12 +9,14 @@ from tabulate import tabulate
 
 from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
-from endoscope.utils import BinaryReader
+from endoscope.data.view import View
+from endoscope.utils import BinaryReader, check, utils
 
 logger = logging.getLogger(__name__)
 
 
 AUDIO_ARRAY_ID_NONE = 4294967295
+INDEX_FILE_NAME = "sprindex.json"
 
 
 def init_parser(subp: _SubParsersAction) -> None:
@@ -30,6 +34,7 @@ def init_parser(subp: _SubParsersAction) -> None:
     views_subp = parser.add_subparsers(required=True)
     _init_json(views_subp)
     _init_info(views_subp)
+    _init_export(views_subp)
 
 
 def _init_json(subp: _SubParsersAction) -> None:
@@ -49,6 +54,34 @@ def _init_info(subp: _SubParsersAction) -> None:
     parser: ArgumentParser = subp.add_parser("info", help="info about view")
     parser.add_argument("view", help="ID or name of the view")
     parser.set_defaults(func=_main_info)
+
+
+def _init_export(subp: _SubParsersAction) -> None:
+    parser: ArgumentParser = subp.add_parser("export", help="export views")
+
+    parser.add_argument(
+        "sprite_dir",
+        type=Path,
+        help="directory with extracted sprites",
+    )
+    parser.add_argument(
+        "output",
+        type=Path,
+        help="output directory",
+    )
+
+    parser.add_argument(
+        "-f",
+        "--flat",
+        action="store_true",
+        help="do not group loops into directories and use prefixes instead",
+    )
+
+    filters_group = parser.add_mutually_exclusive_group(required=True)
+    filters_group.add_argument("-i", "--include", help="views to include")
+    filters_group.add_argument("-e", "--exclude", help="views to exclude")
+
+    parser.set_defaults(func=_main_export)
 
 
 def _main_json(args: Namespace) -> None:
@@ -141,7 +174,9 @@ def _main_info(args: Namespace) -> None:
     view = gd.views[in_index]
     name = gd.view_names[in_index]
 
-    print(f'View {in_index} "{name}"')
+    print(f'View {in_index + 1} "{name}"')
+    print()
+
     loop_rows: list = []
     for i, loop in enumerate(view.loops):
         loop_rows.append([i + 1, loop.run_next_loop])
@@ -169,3 +204,140 @@ def _main_info(args: Namespace) -> None:
             )
         print(tabulate(frame_rows, headers=_FRAME_HEADERS))
         print()
+
+
+def _main_export(args: Namespace) -> None:
+    if args.include is not None:
+        ranges = utils.parse_ranges(args.include)
+    else:
+        ranges = utils.parse_ranges(args.exclude)
+    ve = ViewsExporter(
+        args.input,
+        args.output,
+        args.sprite_dir,
+        ranges,
+        args.exclude is not None,
+        args.flat,
+    )
+    ve.export_views()
+
+
+class ViewsExporter:
+    def __init__(
+        self,
+        pin: Path,
+        pout: Path,
+        sprdir: Path,
+        ranges: list[range],
+        exclude: bool,
+        flat: bool,
+    ) -> None:
+        self.pin = pin
+        self.pout = pout
+        self.sprdir = sprdir
+        self.ranges = ranges
+        self.exclude = exclude
+        self.flat = flat
+
+        self.spridx_path = self.sprdir / INDEX_FILE_NAME
+        self.index: dict = {}
+        self.gd: GameData
+
+    def export_views(self) -> None:
+        check(self.sprdir.is_dir(), "sprite directory is not a directory")
+        self._prepare_index()
+
+        pclib = Clib.read_file(self.pin)
+        clib = pclib.clib
+        file = clib[GameData.FILENAME]
+        with open(self.pin, "rb") as sin:
+            sin.seek(pclib.offset + file.offset)
+            br = BinaryReader(sin)
+            gd = GameData.read(br)
+            self.gd = gd
+        logger.info("Loaded game data")
+
+        if self.exclude:
+            indices = filter(
+                lambda i: all(i + 1 not in r for r in self.ranges), range(len(gd.views))
+            )
+            for i in indices:
+                self._export_view(i)
+        else:
+            for r in self.ranges:
+                for i in r:
+                    self._export_view(i - 1)
+
+    def _prepare_index(self) -> None:
+        index: dict
+        if self.spridx_path.exists():
+            logger.info(
+                "Found %s, reusing. (delete to force sprite reindexing)",
+                INDEX_FILE_NAME,
+            )
+            with open(self.spridx_path, "r", encoding="utf-8") as sin:
+                index = json.load(sin)
+        else:
+            logger.info("Indexing sprites...")
+            index = _build_sprite_index(self.sprdir)
+            with open(self.spridx_path, "w", encoding="utf-8") as sout:
+                json.dump(index, sout)
+            logger.info("Index saved to %s", INDEX_FILE_NAME)
+        self.index = index
+
+    def _export_view(self, i: int) -> None:
+        name = self.gd.view_names[i]
+        logger.debug('Exporting view %d "%s"', i, name)
+        view_dir = self.pout / f"{i + 1}_{name}"
+        view = self.gd.views[i]
+
+        os.makedirs(view_dir, exist_ok=True)
+        for li, loop in enumerate(view.loops):
+            if self.flat:
+                loop_dir = view_dir
+            else:
+                loop_dir = view_dir / str(li)
+            os.makedirs(loop_dir, exist_ok=True)
+
+            for fi, frame in enumerate(loop.frames):
+                try:
+                    src_relpath = self.index[str(frame.image)]
+                except KeyError as exc:
+                    raise KeyError(
+                        f"sprite {frame.image} not found in index", exc
+                    ) from exc
+                src_abspath = self.sprdir.joinpath(src_relpath)
+                suffix = src_abspath.suffix
+
+                out_name = f"{fi}{suffix}"
+                if self.flat:
+                    out_name = f"{li}_{out_name}"
+
+                shutil.copyfile(src_abspath, loop_dir / out_name)
+
+
+def _build_sprite_index(sprdir: Path) -> dict:
+    import re  # pylint: disable=import-outside-toplevel
+
+    pattern = re.compile(r"\D*(\d+)$")
+
+    out = {}
+    for p in sprdir.iterdir():
+        if p.is_dir():
+            continue  # skip dirs
+
+        m = pattern.match(p.stem)
+        if m is None:
+            continue  # skip non-matching
+
+        try:
+            n = int(m.group(1))
+        except ValueError:
+            continue
+
+        relpath = str(p.relative_to(sprdir))
+        if relpath in out:
+            raise RuntimeError(f"duplicate files: {relpath} and {out[n]}")
+        out[n] = relpath
+
+    return out
