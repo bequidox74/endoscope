@@ -9,7 +9,6 @@ from tabulate import tabulate
 
 from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
-from endoscope.data.view import View
 from endoscope.utils import BinaryReader, check, utils
 
 logger = logging.getLogger(__name__)
@@ -261,6 +260,7 @@ class ViewsExporter:
             self.gd = gd
         logger.info("Loaded game data")
 
+        logger.info("Exporting sprites...")
         if self.exclude:
             indices = filter(
                 lambda i: all(i + 1 not in r for r in self.ranges), range(len(gd.views))
@@ -271,6 +271,7 @@ class ViewsExporter:
             for r in self.ranges:
                 for i in r:
                     self._export_view(i - 1)
+        logger.info("Done")
 
     def _prepare_index(self) -> None:
         index: dict
@@ -313,9 +314,9 @@ class ViewsExporter:
                 src_abspath = self.sprdir.joinpath(src_relpath)
                 suffix = src_abspath.suffix
 
-                out_name = f"{fi}{suffix}"
+                out_name = f"{fi + 1}{suffix}"
                 if not self.dirs:
-                    out_name = f"{li}_{out_name}"
+                    out_name = f"{li + 1}_{out_name}"
 
                 shutil.copyfile(src_abspath, loop_dir / out_name)
 
