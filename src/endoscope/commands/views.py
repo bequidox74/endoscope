@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import shutil
 from argparse import ArgumentParser, Namespace, _SubParsersAction
 from pathlib import Path
@@ -305,7 +306,7 @@ class ViewsExporter:
                 index = json.load(sin)
         else:
             logger.info("Indexing sprites...")
-            index = _build_sprite_index(self.sprdir)
+            index = self._build_sprite_index()
             with open(self.spridx_path, "w", encoding="utf-8") as sout:
                 json.dump(index, sout)
             logger.info("Index saved to %s", INDEX_FILE_NAME)
@@ -342,32 +343,30 @@ class ViewsExporter:
 
                 shutil.copyfile(src_abspath, loop_dir / out_name)
 
+    def _build_sprite_index(self) -> dict:
+        sprdir = self.sprdir
+        pattern = re.compile(r"\D*(\d+)$")
 
-def _build_sprite_index(sprdir: Path) -> dict:
-    import re  # pylint: disable=import-outside-toplevel
+        out = {}
+        for p in sprdir.iterdir():
+            if p.is_dir():
+                continue  # skip dirs
 
-    pattern = re.compile(r"\D*(\d+)$")
+            m = pattern.match(p.stem)
+            if m is None:
+                continue  # skip non-matching
 
-    out = {}
-    for p in sprdir.iterdir():
-        if p.is_dir():
-            continue  # skip dirs
+            try:
+                n = int(m.group(1))
+            except ValueError:
+                continue
 
-        m = pattern.match(p.stem)
-        if m is None:
-            continue  # skip non-matching
+            relpath = str(p.relative_to(sprdir))
+            if relpath in out:
+                raise RuntimeError(f"duplicate files: {relpath} and {out[n]}")
+            out[str(n)] = relpath
 
-        try:
-            n = int(m.group(1))
-        except ValueError:
-            continue
-
-        relpath = str(p.relative_to(sprdir))
-        if relpath in out:
-            raise RuntimeError(f"duplicate files: {relpath} and {out[n]}")
-        out[str(n)] = relpath
-
-    return out
+        return out
 
 
 def _main_lookup(args: Namespace) -> None:
