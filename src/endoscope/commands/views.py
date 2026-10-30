@@ -7,6 +7,7 @@ from pathlib import Path
 
 from tabulate import tabulate
 
+from endoscope.commands.utils import read_gamedata
 from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
 from endoscope.utils import BinaryReader, check, utils
@@ -14,7 +15,7 @@ from endoscope.utils import BinaryReader, check, utils
 logger = logging.getLogger(__name__)
 
 
-AUDIO_ARRAY_ID_NONE = 4294967295
+AUDIO_ARRAY_ID_NONE = 4294967295  # -1 in two's complement.
 INDEX_FILE_NAME = "sprindex.json"
 
 
@@ -34,6 +35,7 @@ def init_parser(subp: _SubParsersAction) -> None:
     _init_json(views_subp)
     _init_info(views_subp)
     _init_export(views_subp)
+    _init_lookup(views_subp)
 
 
 def _init_json(subp: _SubParsersAction) -> None:
@@ -81,6 +83,17 @@ def _init_export(subp: _SubParsersAction) -> None:
     filters_group.add_argument("-e", "--exclude", help="views to exclude")
 
     parser.set_defaults(func=_main_export)
+
+
+def _init_lookup(subp: _SubParsersAction) -> None:
+    parser: ArgumentParser = subp.add_parser(
+        "lookup",
+        help="lookup sprite ID to see what views reference it",
+    )
+
+    parser.add_argument("sprite", type=int, help="the sprite ID to look up")
+
+    parser.set_defaults(func=_main_lookup)
 
 
 def _main_json(args: Namespace) -> None:
@@ -347,3 +360,35 @@ def _build_sprite_index(sprdir: Path) -> dict:
         out[str(n)] = relpath
 
     return out
+
+
+def _main_lookup(args: Namespace) -> None:
+    lookup_sprite(args.input, args.sprite)
+
+
+_LOOKUP_HEADERS = ["loop", "frame"]
+
+
+def lookup_sprite(pin: Path, sid: int) -> None:
+    gd = read_gamedata(pin)
+
+    refs: dict[int, dict[int, list[int]]] = {}
+    for vi, view in enumerate(gd.views):
+        for loops, loop in enumerate(view.loops):
+            for fi, frame in enumerate(loop.frames):
+                if frame.image == sid:
+                    refs.setdefault(vi, {}).setdefault(loops, []).append(fi)
+
+    for vi, loops in refs.items():
+        if not loops:
+            continue
+        print(f'View {vi} "{gd.view_names[vi]}"')
+        print()
+
+        rows = []
+        for li, frames in loops.items():
+            if not frames:
+                continue
+            for fi in frames:
+                rows.append([li, fi])
+        print(tabulate(rows, headers=_LOOKUP_HEADERS))
