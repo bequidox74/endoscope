@@ -78,6 +78,15 @@ def _init_export(subp: _SubParsersAction) -> None:
         action="store_true",
         help="group loops into directories instead of using filename prefixes",
     )
+    parser.add_argument(
+        "-x",
+        "--extension",
+        help="""
+        extension to use when indexing sprites (case-insensitive).
+        the index must have been built with the same extension, otherwise things
+        may break. delete the index if you are not sure.
+        """,
+    )
 
     filters_group = parser.add_mutually_exclusive_group()
     filters_group.add_argument(
@@ -242,6 +251,7 @@ def _main_export(args: Namespace) -> None:
         ranges,
         args.exclude is not None or not ranges,
         args.dirs,
+        args.extension,
     )
     ve.export_views()
 
@@ -255,6 +265,7 @@ class ViewsExporter:
         ranges: list[range],
         exclude: bool,
         dirs: bool,
+        ext: str | None,
     ) -> None:
         self.pin = pin
         self.pout = pout
@@ -262,6 +273,10 @@ class ViewsExporter:
         self.ranges = ranges
         self.exclude = exclude
         self.dirs = dirs
+        self.ext = ext
+
+        if self.ext is not None:
+            self.ext = self.ext.removesuffix(".").casefold()
 
         self.spridx_path = self.sprdir / INDEX_FILE_NAME
         self.index: dict = {}
@@ -345,26 +360,33 @@ class ViewsExporter:
 
     def _build_sprite_index(self) -> dict:
         sprdir = self.sprdir
-        pattern = re.compile(r"\D*(\d+)$")
+        pattern = re.compile(r"\D*(\d+)$")  # extracts the first number
 
         out = {}
         for p in sprdir.iterdir():
             if p.is_dir():
                 continue  # skip dirs
+            if p.stem.startswith("_"):
+                continue  # escape hatch for ignoring conflicting files
+            if self.ext is not None and not p.suffix.casefold().endswith(self.ext):
+                continue  # skip ignored extensions
 
             m = pattern.match(p.stem)
             if m is None:
                 continue  # skip non-matching
 
             try:
-                n = int(m.group(1))
+                n = str(int(m.group(1)))
             except ValueError:
                 continue
 
             relpath = str(p.relative_to(sprdir))
-            if relpath in out:
-                raise RuntimeError(f"duplicate files: {relpath} and {out[n]}")
-            out[str(n)] = relpath
+            if n in out:
+                # force the user to deal with duplicates.
+                raise RuntimeError(
+                    f"duplicate files: {relpath} and {out[n]}. Prefix duplicates with '_' to ignore them."
+                )
+            out[n] = relpath
 
         return out
 
