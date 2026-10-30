@@ -3,6 +3,7 @@ import shutil
 from argparse import ArgumentParser, Namespace, _SubParsersAction
 from pathlib import Path
 
+from endoscope._internal.utils import check_dir, check_exe
 from endoscope.data import utils
 from endoscope.data.gamefile import GameData
 
@@ -50,7 +51,9 @@ class AudioFileRenamer:
 
     def rename(self, dry_run: bool) -> None:
         pin = self.pin
-        pad = self.audio_dir
+        paud = self.audio_dir
+        check_exe(pin)
+        check_dir(paud)
 
         gd = utils.read_gamedata(pin)
         file_index = self._build_index(gd)
@@ -59,7 +62,7 @@ class AudioFileRenamer:
             try:
                 name = file_index[p.name]
             except KeyError:
-                logger.debug("File did not match: %s", pad.relative_to(p))
+                logger.debug("File did not match: %s", paud.relative_to(p))
                 continue
 
             old_name = p.stem

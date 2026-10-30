@@ -4,6 +4,7 @@ from argparse import ArgumentParser, Namespace, _SubParsersAction
 from pathlib import Path
 from typing import Any
 
+from endoscope._internal.utils import check_exe
 from endoscope.data import utils
 from endoscope.data.character import Character
 from endoscope.data.gamefile import AudioClip, GameData
@@ -36,6 +37,7 @@ def _main(args: Namespace) -> None:
 
 
 def gamedata_to_json(pin: Path, what: list[str]) -> None:
+    check_exe(pin)
     gd = utils.read_gamedata(pin)
     if not what:
         what = list(_sections.keys())

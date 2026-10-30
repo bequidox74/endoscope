@@ -1,5 +1,8 @@
+import logging
 from pathlib import Path
 from typing import BinaryIO, Literal
+
+logger = logging.getLogger(__name__)
 
 
 def check(cond: bool, message: str, *args) -> None:
@@ -62,3 +65,19 @@ def parse_ranges(s: str) -> list[range]:
             merged.append(r)
 
     return merged
+
+
+def check_dir(p: Path) -> None:
+    check(p.exists(), "directory %s does not exist", p)
+    check(p.is_dir(), "%s is not a directory", p)
+    if "Program Files" in str(p):
+        logger.warning(
+            "Warning: you seem to be writing to Program Files, "
+            "which is probably NOT what you want. If this IS what "
+            "you want, make sure you are running as admin!"
+        )
+
+
+def check_exe(p: Path) -> None:
+    check(p.is_file(), "%s is not a file", p)
+    check(p.suffix == ".exe", "%s is not an .EXE file")

@@ -9,7 +9,7 @@ from pathlib import Path
 from tabulate import tabulate
 
 from endoscope._internal.binary_reader import BinaryReader
-from endoscope._internal.utils import check, parse_ranges
+from endoscope._internal.utils import check_dir, check_exe, parse_ranges
 from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
 from endoscope.data.utils import read_gamedata
@@ -109,9 +109,7 @@ def _init_lookup(subp: _SubParsersAction) -> None:
         "lookup",
         help="lookup sprite ID to see what views reference it",
     )
-
     parser.add_argument("sprite", type=int, help="the sprite ID to look up")
-
     parser.set_defaults(func=_main_lookup)
 
 
@@ -120,6 +118,7 @@ def _main_json(args: Namespace) -> None:
 
 
 def to_json(pin: Path, minify: bool = True) -> str:
+    check_exe(pin)
     gd = read_gamedata(pin)
     out_json = views_to_dict(gd)
 
@@ -176,6 +175,7 @@ _FRAME_HEADERS = [
 def _main_info(args: Namespace) -> None:
     pin: Path = args.input
     in_view: str = args.view
+    check_exe(pin)
 
     in_index: int | None = None
     try:
@@ -262,6 +262,10 @@ class ViewsExporter:
         self.dirs = dirs
         self.ext = ext
 
+        check_exe(self.pin)
+        check_dir(self.pout)
+        check_dir(self.sprdir)
+
         if self.ext is not None:
             self.ext = self.ext.removesuffix(".").casefold()
 
@@ -270,8 +274,6 @@ class ViewsExporter:
         self.gd: GameData
 
     def export_views(self) -> None:
-        check(self.sprdir.exists(), "sprite directory does not exist")
-        check(self.sprdir.is_dir(), "sprite directory is not a directory")
         self._prepare_index()
 
         pclib = Clib.read_file(self.pin)
@@ -371,7 +373,8 @@ class ViewsExporter:
             if n in out:
                 # force the user to deal with duplicates.
                 raise RuntimeError(
-                    f"duplicate files: {relpath} and {out[n]}. Prefix duplicates with '_' to ignore them."
+                    f"duplicate files: {relpath} and {out[n]}. "
+                    "Prefix duplicates with '_' to ignore them."
                 )
             out[n] = relpath
 
@@ -385,14 +388,15 @@ def _main_lookup(args: Namespace) -> None:
 _LOOKUP_HEADERS = ["loop", "frame"]
 
 
-def lookup_sprite(pin: Path, sid: int) -> None:
+def lookup_sprite(pin: Path, sprid: int) -> None:
+    check_exe(pin)
     gd = read_gamedata(pin)
 
     refs: dict[int, dict[int, list[int]]] = {}
     for vi, view in enumerate(gd.views):
         for loops, loop in enumerate(view.loops):
             for fi, frame in enumerate(loop.frames):
-                if frame.image == sid:
+                if frame.image == sprid:
                     refs.setdefault(vi, {}).setdefault(loops, []).append(fi)
 
     for vi, loops in refs.items():
