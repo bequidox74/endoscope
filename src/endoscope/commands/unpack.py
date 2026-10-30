@@ -5,7 +5,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 from endoscope._internal import utils
-from endoscope._internal.utils import check_dir, check_exe
+from endoscope._internal.utils import check_datafile, check_dir
 from endoscope.data.clib import Clib
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ def unpack(
     chunk_size: int,
     dry_run: bool,
 ) -> None:
-    check_exe(pin)
+    check_datafile(pin)
     check_dir(pout)
 
     clib, off_clib = Clib.read_file(pin)

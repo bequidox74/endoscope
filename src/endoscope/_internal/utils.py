@@ -1,13 +1,16 @@
+import itertools
 import logging
 from pathlib import Path
-from typing import BinaryIO, Literal
+from typing import BinaryIO, Iterable, Literal
+
+SUFFIXES = (".exe", ".ags", ".vox")
 
 logger = logging.getLogger(__name__)
 
 
 def check(cond: bool, message: str, *args) -> None:
     if not cond:
-        raise AssertionError(str.format(message, *args))
+        raise AssertionError(message % args)
 
 
 def chunked_copy(
@@ -33,7 +36,10 @@ def detect_file_type(path: Path) -> Literal["clib", "exe"]:
         return "clib"
 
 
-def parse_ranges(s: str) -> list[range]:
+def parse_ranges(s: str | None) -> list[range]:
+    if s is None:
+        return []
+
     result: list[range] = []
     parts = s.split(",")
     check(len(parts) > 0, "attempt to parse empty range spec")
@@ -67,6 +73,20 @@ def parse_ranges(s: str) -> list[range]:
     return merged
 
 
+def filter_ranges(full: range, include: list[range], exclude: list[range]) -> list[int]:
+    filters = exclude if exclude else include
+    filtered = itertools.chain.from_iterable(filters)
+    if not filters:
+        return list(full)
+    check(bool(include) != bool(exclude), "both include and exclude specified")
+
+    if exclude:
+        s = set(filtered)
+        return [i for i in full if i not in s]
+    else:
+        return list(filtered)
+
+
 def check_dir(p: Path) -> None:
     check(p.exists(), "directory %s does not exist", p)
     check(p.is_dir(), "%s is not a directory", p)
@@ -78,6 +98,6 @@ def check_dir(p: Path) -> None:
         )
 
 
-def check_exe(p: Path) -> None:
+def check_datafile(p: Path) -> None:
     check(p.is_file(), "%s is not a file", p)
-    check(p.suffix == ".exe", "%s is not an .EXE file")
+    check(p.suffix.casefold() in SUFFIXES, "%s is not a supported data file", p)

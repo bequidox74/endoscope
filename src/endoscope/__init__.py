@@ -1,7 +1,8 @@
+from endoscope.commands.sprites import SpritesCommand
 import logging
 from argparse import ArgumentParser
 
-from endoscope.commands import audio, data, unpack, views
+from endoscope.commands import audio, data, unpack, views, sprites
 
 
 def main() -> None:
@@ -29,6 +30,7 @@ def main() -> None:
     views.init_parser(subp)
     data.init_parser(subp)
     audio.init_parser(subp)
+    SpritesCommand().init_parser(subp)
 
     args = parser.parse_args()
     logging.basicConfig(

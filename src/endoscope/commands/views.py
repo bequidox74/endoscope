@@ -9,7 +9,7 @@ from pathlib import Path
 from tabulate import tabulate
 
 from endoscope._internal.binary_reader import BinaryReader
-from endoscope._internal.utils import check_dir, check_exe, parse_ranges
+from endoscope._internal.utils import check_datafile, check_dir, parse_ranges
 from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
 from endoscope.data.utils import read_gamedata
@@ -118,7 +118,7 @@ def _main_json(args: Namespace) -> None:
 
 
 def to_json(pin: Path, minify: bool = True) -> str:
-    check_exe(pin)
+    check_datafile(pin)
     gd = read_gamedata(pin)
     out_json = views_to_json(gd)
 
@@ -180,7 +180,7 @@ _FRAME_HEADERS = [
 def _main_info(args: Namespace) -> None:
     pin: Path = args.input
     in_view: str = args.view
-    check_exe(pin)
+    check_datafile(pin)
 
     in_index: int | None = None
     try:
@@ -267,7 +267,7 @@ class ViewsExporter:
         self.dirs = dirs
         self.ext = ext
 
-        check_exe(self.pin)
+        check_datafile(self.pin)
         check_dir(self.pout)
         check_dir(self.sprdir)
 
@@ -394,7 +394,7 @@ _LOOKUP_HEADERS = ["loop", "frame"]
 
 
 def lookup_sprite(pin: Path, sprid: int) -> None:
-    check_exe(pin)
+    check_datafile(pin)
     gd = read_gamedata(pin)
 
     refs: dict[int, dict[int, list[int]]] = {}

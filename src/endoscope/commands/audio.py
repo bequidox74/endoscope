@@ -3,7 +3,7 @@ import shutil
 from argparse import ArgumentParser, Namespace, _SubParsersAction
 from pathlib import Path
 
-from endoscope._internal.utils import check_dir, check_exe
+from endoscope._internal.utils import check_datafile, check_dir
 from endoscope.data import utils
 from endoscope.data.gamefile import GameData
 
@@ -52,7 +52,7 @@ class AudioFileRenamer:
     def rename(self, dry_run: bool) -> None:
         pin = self.pin
         paud = self.audio_dir
-        check_exe(pin)
+        check_datafile(pin)
         check_dir(paud)
 
         gd = utils.read_gamedata(pin)
