@@ -26,7 +26,7 @@ def init_parser(subp: _SubParsersAction) -> None:
     parser.add_argument(
         "what",
         nargs="*",
-        help="what sections to export",
+        help=f"what sections to export ({_get_available_sections()})",
     )
 
     parser.set_defaults(func=_main)
@@ -139,3 +139,7 @@ _sections["audio"] = export_audio
 _sections["labels"] = export_gui_labels
 _sections["items"] = export_items
 _sections["dialogue"] = export_dialogue
+
+
+def _get_available_sections() -> str:
+    return ",".join(_sections.keys())

@@ -75,12 +75,20 @@ def _init_export(subp: _SubParsersAction) -> None:
         "-d",
         "--dirs",
         action="store_true",
-        help="group loops into directories instead of prefixes",
+        help="group loops into directories instead of using filename prefixes",
     )
 
     filters_group = parser.add_mutually_exclusive_group()
-    filters_group.add_argument("-i", "--include", help="views to include")
-    filters_group.add_argument("-e", "--exclude", help="views to exclude")
+    filters_group.add_argument(
+        "-i",
+        "--include",
+        help="comma-separated list of ranges to include (e.g 1,4-6,7-9)",
+    )
+    filters_group.add_argument(
+        "-e",
+        "--exclude",
+        help="comma-separated list of ranges to exclude (e.g. 1,4-6,7-9)",
+    )
 
     parser.set_defaults(func=_main_export)
 

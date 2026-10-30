@@ -15,8 +15,9 @@ CHUNK_SIZE_KIB = 64
 def init_parser(subp) -> None:
     parser: ArgumentParser = subp.add_parser(
         "unpack",
-        help="unpack assets from .exe",
+        help="unpack assets",
     )
+
     parser.add_argument(
         "input",
         type=Path,
@@ -27,6 +28,7 @@ def init_parser(subp) -> None:
         type=Path,
         help="output directory (will be created if needed)",
     )
+
     parser.add_argument(
         "-c",
         "--chunk-size",
@@ -38,7 +40,7 @@ def init_parser(subp) -> None:
         "-d",
         "--dry-run",
         action="store_true",
-        help="do a dry run without writing any files",
+        help="do a dry run without writing any files (effectively lists assets)",
     )
 
     filters = parser.add_mutually_exclusive_group()
@@ -46,13 +48,13 @@ def init_parser(subp) -> None:
         "-i",
         "--include",
         nargs="+",
-        help="wildcard for included files",
+        help="wildcards for included files (can have multiple)",
     )
     filters.add_argument(
         "-e",
         "--exclude",
         nargs="+",
-        help="wildcard for excluded files",
+        help="wildcards for excluded files (can have multiple)",
     )
 
     parser.set_defaults(func=main)
@@ -78,7 +80,7 @@ def unpack(
     dry_run: bool,
 ) -> None:
     clib, off_clib = Clib.read_file(pin)
-    logger.info("CLIB v%d with %d files", clib.version, len(clib.files))
+    logger.info("CLIB v%d listing %d files", clib.version, len(clib.files))
     count = 0
     for f in clib.files:
         if not _filter(f.name, include, exclude):
@@ -92,8 +94,9 @@ def unpack(
                 utils.chunked_copy(sin, sout, offset, f.size, chunk_size)
 
         count += 1
-        logger.info("extracted '%s' (%d bytes)", f.name, f.size)
-    logger.info("done, %d assets extracted to %s", count, pout)
+        prefix = "Would have extracted" if dry_run else "Extracted"
+        logger.info("%s '%s' (%d bytes)", prefix, f.name, f.size)
+    logger.info("Done. %d assets extracted to %s", count, pout)
 
 
 def _filter(fname: str, inc: list[str], exc: list[str]) -> bool:
