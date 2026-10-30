@@ -4,10 +4,9 @@ from argparse import ArgumentParser, Namespace, _SubParsersAction
 from pathlib import Path
 from typing import Any
 
+from endoscope.data import utils
 from endoscope.data.character import Character
 from endoscope.data.gamefile import AudioClip, GameData
-
-from . import utils
 
 logger = logging.getLogger(__name__)
 

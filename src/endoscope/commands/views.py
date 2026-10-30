@@ -8,9 +8,9 @@ from pathlib import Path
 
 from tabulate import tabulate
 
-from endoscope.commands.utils import read_gamedata
 from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
+from endoscope.data.utils import read_gamedata
 from endoscope.utils import BinaryReader, check, utils
 
 logger = logging.getLogger(__name__)
@@ -119,14 +119,7 @@ def _main_json(args: Namespace) -> None:
 
 
 def to_json(pin: Path, minify: bool = True) -> str:
-    pclib = Clib.read_file(pin)
-    clib = pclib.clib
-    file = clib[GameData.FILENAME]
-    with open(pin, "rb") as sin:
-        sin.seek(pclib.offset + file.offset)
-        br = BinaryReader(sin)
-        gd = GameData.read(br)
-
+    gd = read_gamedata(pin)
     out_json = views_to_dict(gd)
 
     indent = None if minify else 2
@@ -189,14 +182,7 @@ def _main_info(args: Namespace) -> None:
     except ValueError:
         pass
 
-    pclib = Clib.read_file(pin)
-    clib = pclib.clib
-    file = clib[GameData.FILENAME]
-    with open(pin, "rb") as sin:
-        sin.seek(pclib.offset + file.offset)
-        br = BinaryReader(sin)
-        gd = GameData.read(br)
-
+    gd = read_gamedata(pin)
     if in_index is None:
         in_index = gd.view_names.index(in_view)
     else:

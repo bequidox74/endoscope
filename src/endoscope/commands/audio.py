@@ -3,7 +3,7 @@ import shutil
 from argparse import ArgumentParser, Namespace, _SubParsersAction
 from pathlib import Path
 
-from endoscope.commands import utils
+from endoscope.data import utils
 from endoscope.data.gamefile import GameData
 
 logger = logging.getLogger(__name__)
