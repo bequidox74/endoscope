@@ -120,19 +120,22 @@ def _main_json(args: Namespace) -> None:
 def to_json(pin: Path, minify: bool = True) -> str:
     check_exe(pin)
     gd = read_gamedata(pin)
-    out_json = views_to_dict(gd)
+    out_json = views_to_json(gd)
 
     indent = None if minify else 2
     separators = (",", ":") if minify else (",", ": ")
     return json.dumps(out_json, indent=indent, separators=separators)
 
 
-def views_to_dict(gd: GameData) -> dict:
-    out = {}
+def views_to_json(gd: GameData) -> list:
+    out = []
     for vi, view in enumerate(gd.views):
-        view_json: list = []
-        out[gd.view_names[vi]] = view_json
+        view_json: dict = {}
+        view_json["id"] = vi + 1
+        view_json["name"] = gd.view_names[vi]
+        out.append(view_json)
 
+        loops: list = []
         for loop in view.loops:
             out_loop: dict = {}
             frames: list[dict] = []
@@ -152,11 +155,13 @@ def views_to_dict(gd: GameData) -> dict:
                     out_frame["flipped"] = frame.flipped
                 if frame.audio_array_id != AUDIO_ARRAY_ID_NONE:
                     out_frame["audioArrayId"] = frame.audio_array_id
+                frames.append(out_frame)
 
-                if out_frame:
-                    frames.append(out_frame)
+            if frames:
+                loops.append(out_loop)
 
-            view_json.append(out_loop)
+        if loops:
+            view_json["loops"] = loops
     return out
 
 
