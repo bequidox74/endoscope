@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from endoscope.utils import BinaryReader
+from endoscope._internal.binary_reader import BinaryReader
 
 from .clib import Clib
 from .gamefile import GameData

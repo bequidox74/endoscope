@@ -8,10 +8,11 @@ from pathlib import Path
 
 from tabulate import tabulate
 
+from endoscope._internal.binary_reader import BinaryReader
+from endoscope._internal.utils import check, parse_ranges
 from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
 from endoscope.data.utils import read_gamedata
-from endoscope.utils import BinaryReader, check, utils
 
 logger = logging.getLogger(__name__)
 
@@ -224,9 +225,9 @@ def _main_info(args: Namespace) -> None:
 
 def _main_export(args: Namespace) -> None:
     if args.include is not None:
-        ranges = utils.parse_ranges(args.include)
+        ranges = parse_ranges(args.include)
     elif args.exclude is not None:
-        ranges = utils.parse_ranges(args.exclude)
+        ranges = parse_ranges(args.exclude)
     else:
         ranges = []
 

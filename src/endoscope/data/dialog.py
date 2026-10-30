@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import IntFlag
 
-from endoscope.utils import BinaryReader
+from endoscope._internal.binary_reader import BinaryReader
 
 
 class DialogFlag(IntFlag):

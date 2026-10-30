@@ -4,9 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, NamedTuple
 
-from endoscope import utils
-from endoscope.utils.binary_reader import BinaryReader
-from endoscope.utils.check import check
+from endoscope._internal.binary_reader import BinaryReader
+from endoscope._internal.utils import check, detect_file_type
 
 
 class PlacedClib(NamedTuple):
@@ -62,7 +61,7 @@ class Clib:
 
     @staticmethod
     def read_file(path: Path) -> PlacedClib:
-        type_ = utils.detect_file_type(path)
+        type_ = detect_file_type(path)
         if type_ == "exe":
             return Clib.read_exe(path)
         else:

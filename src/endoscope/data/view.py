@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from endoscope.utils import BinaryReader
+from endoscope._internal.binary_reader import BinaryReader
 
 
 @dataclass

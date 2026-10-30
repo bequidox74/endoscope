@@ -1,7 +1,10 @@
 from pathlib import Path
 from typing import BinaryIO, Literal
 
-from .check import check
+
+def check(cond: bool, message: str, *args) -> None:
+    if not cond:
+        raise AssertionError(str.format(message, *args))
 
 
 def chunked_copy(

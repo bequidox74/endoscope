@@ -4,8 +4,8 @@ from argparse import ArgumentParser, Namespace
 from fnmatch import fnmatch
 from pathlib import Path
 
+from endoscope._internal import utils
 from endoscope.data.clib import Clib
-from endoscope.utils import utils
 
 logger = logging.getLogger(__name__)
 

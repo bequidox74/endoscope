@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from enum import IntEnum, IntFlag
 from typing import ClassVar, NamedTuple
 
-from endoscope.utils import BinaryReader, check
+from endoscope._internal.binary_reader import BinaryReader
+from endoscope._internal.utils import check
 
 from . import encrypt
 from .character import Character
