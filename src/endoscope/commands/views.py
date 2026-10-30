@@ -382,8 +382,7 @@ def lookup_sprite(pin: Path, sid: int) -> None:
     for vi, loops in refs.items():
         if not loops:
             continue
-        print(f'View {vi} "{gd.view_names[vi]}"')
-        print()
+        print(f'View {vi} "{gd.view_names[vi]}":')
 
         rows = []
         for li, frames in loops.items():
@@ -392,3 +391,4 @@ def lookup_sprite(pin: Path, sid: int) -> None:
             for fi in frames:
                 rows.append([li, fi])
         print(tabulate(rows, headers=_LOOKUP_HEADERS))
+        print()
