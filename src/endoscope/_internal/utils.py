@@ -87,6 +87,24 @@ def filter_ranges(full: range, include: list[range], exclude: list[range]) -> li
         return list(filtered)
 
 
+def split_range(start: int, end: int, n: int) -> list[tuple[int, int]]:
+    if n <= 0:
+        raise ValueError("n must be positive")
+    total = end - start
+    if total < 0:
+        raise ValueError("end must be >= start")
+    n = min(n, total)  # can't make more non-empty chunks than elements
+
+    base, rem = divmod(total, n)
+    chunks = []
+    pos = start
+    for i in range(n):
+        size = base + (1 if i < rem else 0)
+        chunks.append((pos, pos + size))
+        pos += size
+    return chunks
+
+
 def check_dir(p: Path) -> None:
     check(p.exists(), "directory %s does not exist", p)
     check(p.is_dir(), "%s is not a directory", p)
