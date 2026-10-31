@@ -3,13 +3,14 @@ import logging
 import os
 import re
 import shutil
-from argparse import ArgumentParser, Namespace, _SubParsersAction
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
 from tabulate import tabulate
 
 from endoscope._internal.binary_reader import BinaryReader
 from endoscope._internal.utils import check_datafile, check_dir, parse_ranges
+from endoscope.commands.command import Command, command
 from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
 from endoscope.data.utils import read_gamedata
@@ -21,106 +22,168 @@ AUDIO_ARRAY_ID_NONE = 4294967295  # -1 in two's complement.
 INDEX_FILE_NAME = "sprindex.json"
 
 
-def init_parser(subp: _SubParsersAction) -> None:
-    parser: ArgumentParser = subp.add_parser(
-        "views",
-        help="views (animations) related operations",
-    )
+@command("views", "views (animations) operations")
+class ViewsCommand(Command):
+    def _init_parser(self, parser: ArgumentParser) -> None:
+        parser.add_argument(
+            "input",
+            type=Path,
+            help="input data file",
+        )
 
-    parser.add_argument(
-        "input",
-        type=Path,
-        help="input data file",
-    )
-
-    views_subp = parser.add_subparsers(required=True)
-    _init_json(views_subp)
-    _init_info(views_subp)
-    _init_export(views_subp)
-    _init_lookup(views_subp)
+        subp = parser.add_subparsers(required=True)
+        _JsonCommand().init_parser(subp)
+        _InfoCommand().init_parser(subp)
+        _ExportCommand().init_parser(subp)
+        _LookupCommand().init_parser(subp)
 
 
-def _init_json(subp: _SubParsersAction) -> None:
-    parser: ArgumentParser = subp.add_parser("json", help="export views as JSON")
+@command("json", "export view data to JSON")
+class _JsonCommand(Command):
+    def _init_parser(self, parser: ArgumentParser) -> None:
+        parser.add_argument(
+            "-m",
+            "--minify",
+            help="minify JSON",
+            action="store_true",
+        )
 
-    parser.add_argument(
-        "-m",
-        "--minify",
-        help="minify JSON",
-        action="store_true",
-    )
-
-    parser.set_defaults(func=_main_json)
-
-
-def _init_info(subp: _SubParsersAction) -> None:
-    parser: ArgumentParser = subp.add_parser("info", help="info about view")
-    parser.add_argument("view", help="ID or name of the view")
-    parser.set_defaults(func=_main_info)
+    def execute(self, args: Namespace) -> None:
+        print(_to_json(pin=args.input, minify=args.minify))
 
 
-def _init_export(subp: _SubParsersAction) -> None:
-    parser: ArgumentParser = subp.add_parser("export", help="export views")
+@command("info", "print info about a view")
+class _InfoCommand(Command):
+    def _init_parser(self, parser: ArgumentParser) -> None:
+        parser.add_argument("view", help="ID or name of the view")
 
-    parser.add_argument(
-        "sprite_dir",
-        type=Path,
-        help="directory with extracted sprites",
-    )
-    parser.add_argument(
-        "output",
-        type=Path,
-        help="output directory",
-    )
+    def execute(self, args: Namespace) -> None:
+        pin: Path = args.input
+        in_view: str = args.view
+        check_datafile(pin)
 
-    parser.add_argument(
-        "-d",
-        "--dirs",
-        action="store_true",
-        help="group loops into directories instead of using filename prefixes",
-    )
-    parser.add_argument(
-        "-x",
-        "--extension",
-        help="""
-        extension to use when indexing sprites (case-insensitive).
-        the index must have been built with the same extension, otherwise things
-        may break. delete the index if you are not sure.
-        """,
-    )
-    parser.add_argument(
-        "-m--move", action="store_true", help="move files instead of copying them"
-    )
+        in_index: int | None = None
+        try:
+            in_index = int(in_view)
+        except ValueError:
+            pass
 
-    filters_group = parser.add_mutually_exclusive_group()
-    filters_group.add_argument(
-        "-i",
-        "--include",
-        help="comma-separated list of ranges to include (e.g 1,4-6,7-9)",
-    )
-    filters_group.add_argument(
-        "-e",
-        "--exclude",
-        help="comma-separated list of ranges to exclude (e.g. 1,4-6,7-9)",
-    )
+        gd = read_gamedata(pin)
+        if in_index is None:
+            in_index = gd.view_names.index(in_view)
+        else:
+            in_index -= 1
+        view = gd.views[in_index]
+        name = gd.view_names[in_index]
 
-    parser.set_defaults(func=_main_export)
+        print(f'View {in_index + 1} "{name}"')
+        print()
 
+        loop_rows: list = []
+        for i, loop in enumerate(view.loops):
+            loop_rows.append([i + 1, loop.run_next_loop])
+        print(tabulate(loop_rows, headers=_LOOP_HEADERS))
+        print()
 
-def _init_lookup(subp: _SubParsersAction) -> None:
-    parser: ArgumentParser = subp.add_parser(
-        "lookup",
-        help="lookup sprite ID to see what views reference it",
-    )
-    parser.add_argument("sprite", type=int, help="the sprite ID to look up")
-    parser.set_defaults(func=_main_lookup)
+        for i, loop in enumerate(view.loops):
+            print(f"Loop {i}:")
+            frame_rows: list = []
+            for fi, frame in enumerate(loop.frames):
+                audio = ""
+                if frame.audio_array_id != AUDIO_ARRAY_ID_NONE:
+                    audio = gd.audio_clips[frame.audio_array_id].script_name
 
-
-def _main_json(args: Namespace) -> None:
-    print(to_json(pin=args.input, minify=args.minify))
+                frame_rows.append(
+                    [
+                        fi + 1,
+                        frame.image,
+                        frame.x_offset,
+                        frame.y_offset,
+                        frame.delay,
+                        frame.flipped,
+                        audio,
+                    ]
+                )
+            print(tabulate(frame_rows, headers=_FRAME_HEADERS))
+            print()
 
 
-def to_json(pin: Path, minify: bool = True) -> str:
+@command("export", "export views into a file system hierarchy")
+class _ExportCommand(Command):
+    def _init_parser(self, parser: ArgumentParser) -> None:
+        parser.add_argument(
+            "sprite_dir",
+            type=Path,
+            help="directory with extracted sprites",
+        )
+        parser.add_argument(
+            "output",
+            type=Path,
+            help="output directory",
+        )
+
+        parser.add_argument(
+            "-d",
+            "--dirs",
+            action="store_true",
+            help="group loops into directories instead of using filename prefixes",
+        )
+        parser.add_argument(
+            "-x",
+            "--extension",
+            help="""
+            extension to use when indexing sprites (case-insensitive).
+            the index must have been built with the same extension, otherwise things
+            may break. delete the index if you are not sure.
+            """,
+        )
+        parser.add_argument(
+            "-m--move", action="store_true", help="move files instead of copying them"
+        )
+
+        filters_group = parser.add_mutually_exclusive_group()
+        filters_group.add_argument(
+            "-i",
+            "--include",
+            help="comma-separated list of ranges to include (e.g 1,4-6,7-9)",
+        )
+        filters_group.add_argument(
+            "-e",
+            "--exclude",
+            help="comma-separated list of ranges to exclude (e.g. 1,4-6,7-9)",
+        )
+
+    def execute(self, args: Namespace) -> None:
+        if args.include is not None:
+            ranges = parse_ranges(args.include)
+        elif args.exclude is not None:
+            ranges = parse_ranges(args.exclude)
+        else:
+            ranges = []
+
+        ve = ViewsExporter(
+            pin=args.input,
+            pout=args.output,
+            sprdir=args.sprite_dir,
+            ranges=ranges,
+            exclude=args.exclude is not None or not ranges,
+            dirs=args.dirs,
+            ext=args.extension,
+            move=args.move,
+        )
+        ve.export_views()
+
+
+@command("lookup", "lookup views that reference a sprite")
+class _LookupCommand(Command):
+    def _init_parser(self, parser: ArgumentParser) -> None:
+        parser.add_argument("sprite", type=int, help="the sprite ID to look up")
+
+    def execute(self, args: Namespace) -> None:
+        lookup_sprite(args.input, args.sprite)
+
+
+def _to_json(pin: Path, minify: bool = True) -> str:
     check_datafile(pin)
     gd = read_gamedata(pin)
     out_json = views_to_json(gd)
@@ -178,78 +241,6 @@ _FRAME_HEADERS = [
     "flipped",
     "audio",
 ]
-
-
-def _main_info(args: Namespace) -> None:
-    pin: Path = args.input
-    in_view: str = args.view
-    check_datafile(pin)
-
-    in_index: int | None = None
-    try:
-        in_index = int(in_view)
-    except ValueError:
-        pass
-
-    gd = read_gamedata(pin)
-    if in_index is None:
-        in_index = gd.view_names.index(in_view)
-    else:
-        in_index -= 1
-    view = gd.views[in_index]
-    name = gd.view_names[in_index]
-
-    print(f'View {in_index + 1} "{name}"')
-    print()
-
-    loop_rows: list = []
-    for i, loop in enumerate(view.loops):
-        loop_rows.append([i + 1, loop.run_next_loop])
-    print(tabulate(loop_rows, headers=_LOOP_HEADERS))
-    print()
-
-    for i, loop in enumerate(view.loops):
-        print(f"Loop {i}:")
-        frame_rows: list = []
-        for fi, frame in enumerate(loop.frames):
-            audio = ""
-            if frame.audio_array_id != AUDIO_ARRAY_ID_NONE:
-                audio = gd.audio_clips[frame.audio_array_id].script_name
-
-            frame_rows.append(
-                [
-                    fi + 1,
-                    frame.image,
-                    frame.x_offset,
-                    frame.y_offset,
-                    frame.delay,
-                    frame.flipped,
-                    audio,
-                ]
-            )
-        print(tabulate(frame_rows, headers=_FRAME_HEADERS))
-        print()
-
-
-def _main_export(args: Namespace) -> None:
-    if args.include is not None:
-        ranges = parse_ranges(args.include)
-    elif args.exclude is not None:
-        ranges = parse_ranges(args.exclude)
-    else:
-        ranges = []
-
-    ve = ViewsExporter(
-        pin=args.input,
-        pout=args.output,
-        sprdir=args.sprite_dir,
-        ranges=ranges,
-        exclude=args.exclude is not None or not ranges,
-        dirs=args.dirs,
-        ext=args.extension,
-        move=args.move,
-    )
-    ve.export_views()
 
 
 class ViewsExporter:
@@ -393,10 +384,6 @@ class ViewsExporter:
             out[n] = relpath
 
         return out
-
-
-def _main_lookup(args: Namespace) -> None:
-    lookup_sprite(args.input, args.sprite)
 
 
 _LOOKUP_HEADERS = ["loop", "frame"]
