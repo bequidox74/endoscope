@@ -1,10 +1,18 @@
 import logging
+import os
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from pathlib import Path
 
+from PIL import Image
+
 from endoscope._internal.binary_reader import BinaryReader
-from endoscope._internal.utils import check, check_datafile, filter_ranges, parse_ranges
+from endoscope._internal.utils import (
+    check,
+    check_datafile,
+    filter_ranges,
+    parse_ranges,
+)
 from endoscope.commands.command import Command, command
 from endoscope.data.clib import Clib
 from endoscope.data.spriteset import Sprite, SpriteIndex, SpriteSet
@@ -12,17 +20,19 @@ from endoscope.data.spriteset import Sprite, SpriteIndex, SpriteSet
 logger = logging.getLogger(__name__)
 
 
-@command("sprites")
+@command("sprites", "extract sprites")
 class SpritesCommand(Command):
     def _init_parser(self, parser: ArgumentParser) -> None:
-        subp = parser.add_subparsers(required=True)
         parser.add_argument("input", type=Path, help="input data file")
-        _ExtractCommand().init_parser(subp)
+        parser.add_argument("output", type=Path, help="output directory")
 
+        parser.add_argument(
+            "-d",
+            "--dry-run",
+            action="store_true",
+            help="perform a dry run without modifying files",
+        )
 
-@command("extract")
-class _ExtractCommand(Command):
-    def _init_parser(self, parser: ArgumentParser) -> None:
         filters_group = parser.add_mutually_exclusive_group()
         filters_group.add_argument(
             "-i",
@@ -38,17 +48,22 @@ class _ExtractCommand(Command):
     def execute(self, args: Namespace) -> None:
         extract_sprites(
             pin=args.input,
+            pout=args.output,
             include=parse_ranges(args.include),
             exclude=parse_ranges(args.exclude),
+            dry_run=args.dry_run,
         )
 
 
 def extract_sprites(
     pin: Path,
+    pout: Path,
     include: list[range],
     exclude: list[range],
+    dry_run: bool,
 ) -> None:
     check_datafile(pin)
+
     pclib = Clib.read_file(pin)
     clib = pclib.clib
 
@@ -79,6 +94,7 @@ def extract_sprites(
     num_sprites = spridx.count
 
     indices = filter_ranges(range(num_sprites), include, exclude)
+    os.makedirs(pout, exist_ok=True)
     with open(pin, "rb") as sin:
         br = BinaryReader(sin)
         off_sprset = pclib.offset + sprset_file.offset
@@ -93,5 +109,16 @@ def extract_sprites(
             if sprite is None:
                 continue
 
-            sin.seek(sprite.off_data + 1)
+            sin.seek(off_sprite + sprite.off_data)
             bitmap = sprite.read_bitmap(br)
+            file_path = pout / f"{i}.png"
+            if not dry_run:
+                _save_bitmap(bitmap, sprite.width, sprite.height, file_path)
+            logger.info("Extracted %s", file_path)
+
+
+def _save_bitmap(bitmap: bytes, w: int, h: int, p: Path) -> None:
+    try:
+        Image.frombytes("RGBA", (w, h), bitmap).save(p)
+    except Exception as exc:
+        logger.error("Error while saving sprite %s", p, exc_info=exc)

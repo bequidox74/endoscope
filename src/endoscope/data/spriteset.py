@@ -71,7 +71,7 @@ class Sprite:
         HIGHSPRITELIMIT = 11
         STORAGEFORMATS = 12
 
-    bytes_per_pixel: int  # u8
+    bpp: int  # u8  # bytes per pixel
     palette_fmt: Sprite.Palette  # u8
     palette: list[int] = field(repr=False)  # [u8]
     compression: Compression  # u8
@@ -119,7 +119,7 @@ class Sprite:
         br.skip(len_data)
 
         return Sprite(
-            bytes_per_pixel=bytes_per_pixel,
+            bpp=bytes_per_pixel,
             palette_fmt=storage_fmt,
             palette=palette,
             compression=compression,
@@ -132,26 +132,27 @@ class Sprite:
     def read_bitmap(self, br: BinaryReader) -> bytes:
         raw = br.read(self.len_data)
         decomp: bytes = b""
-        size = self.width * self.height * self.bytes_per_pixel
+        size = self.width * self.height
         has_palette = self.palette_fmt is not Sprite.Palette.UNDEFINED
 
         bpp: int
         if has_palette:
             bpp = 1
         else:
-            bpp = self.bytes_per_pixel
+            bpp = self.bpp
 
         if self.compression == Sprite.Compression.NONE:
             decomp = raw
         elif self.compression == Sprite.Compression.RLE:
             decomp = decode.rle(bpp, size, raw)
         elif self.compression == Sprite.Compression.LZW:
-            raise NotImplementedError  # TODO
+            # decomp = decode.lzw(bpp, size, raw)
+            raise NotImplementedError
 
         if has_palette:  # indexed
-            return decode.indexed(bpp, decomp, self.palette)
+            return decode.indexed_to_rgba(decomp, self.palette)
         else:  # sequential
-            return decode.sequential(bpp, decomp)
+            return decode.sequential(decomp)
 
 
 type ColorDecoder = Callable[[bytes], int]
@@ -163,8 +164,8 @@ class FormatSpec(NamedTuple):
 
 
 DECODERS: dict[int, ColorDecoder] = {
-    2: decode.rgb565,
-    3: decode.rgb888,
+    # 2: decode.rgb565,
+    # 3: decode.rgb888,
     4: decode.argb8888,
 }
 
