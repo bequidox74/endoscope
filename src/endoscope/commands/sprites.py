@@ -27,6 +27,15 @@ class SpritesCommand(Command):
         parser.add_argument("output", type=Path, help="output directory")
 
         parser.add_argument(
+            "-x",
+            "--extension",
+            help=(
+                "extension to save the sprites with "
+                "(most should work, but some may lose transparency)"
+            ),
+            default="png",
+        )
+        parser.add_argument(
             "-d",
             "--dry-run",
             action="store_true",
@@ -52,6 +61,7 @@ class SpritesCommand(Command):
             include=parse_ranges(args.include),
             exclude=parse_ranges(args.exclude),
             dry_run=args.dry_run,
+            extension=args.extension,
         )
 
 
@@ -61,6 +71,7 @@ def extract_sprites(
     include: list[range],
     exclude: list[range],
     dry_run: bool,
+    extension: str,
 ) -> None:
     check_datafile(pin)
 
@@ -111,7 +122,7 @@ def extract_sprites(
 
             sin.seek(off_sprite + sprite.off_data)
             bitmap = sprite.read_bitmap(br)
-            file_path = pout / f"{i}.png"
+            file_path = pout / f"{i}.{extension}"
             if not dry_run:
                 _save_bitmap(bitmap, sprite.width, sprite.height, file_path)
             logger.info("Extracted %s", file_path)
@@ -119,6 +130,9 @@ def extract_sprites(
 
 def _save_bitmap(bitmap: bytes, w: int, h: int, p: Path) -> None:
     try:
-        Image.frombytes("RGBA", (w, h), bitmap).save(p)
+        image = Image.frombytes("RGBA", (w, h), bitmap)
+        if p.suffix.casefold() in (".jpg", ".JPEG"):
+            image = image.convert("RGB")
+        image.save(p)
     except Exception as exc:
         logger.error("Error while saving sprite %s", p, exc_info=exc)
