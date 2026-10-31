@@ -88,6 +88,9 @@ def _init_export(subp: _SubParsersAction) -> None:
         may break. delete the index if you are not sure.
         """,
     )
+    parser.add_argument(
+        "-m--move", action="store_true", help="move files instead of copying them"
+    )
 
     filters_group = parser.add_mutually_exclusive_group()
     filters_group.add_argument(
@@ -237,13 +240,14 @@ def _main_export(args: Namespace) -> None:
         ranges = []
 
     ve = ViewsExporter(
-        args.input,
-        args.output,
-        args.sprite_dir,
-        ranges,
-        args.exclude is not None or not ranges,
-        args.dirs,
-        args.extension,
+        pin=args.input,
+        pout=args.output,
+        sprdir=args.sprite_dir,
+        ranges=ranges,
+        exclude=args.exclude is not None or not ranges,
+        dirs=args.dirs,
+        ext=args.extension,
+        move=args.move,
     )
     ve.export_views()
 
@@ -258,6 +262,7 @@ class ViewsExporter:
         exclude: bool,
         dirs: bool,
         ext: str | None,
+        move: bool,
     ) -> None:
         self.pin = pin
         self.pout = pout
@@ -266,6 +271,7 @@ class ViewsExporter:
         self.exclude = exclude
         self.dirs = dirs
         self.ext = ext
+        self.move = move
 
         check_datafile(self.pin)
         check_dir(self.pout)
@@ -346,11 +352,14 @@ class ViewsExporter:
                 src_abspath = self.sprdir.joinpath(src_relpath)
                 suffix = src_abspath.suffix
 
-                out_name = f"{fi + 1}{suffix}"
+                out_name = f"{fi}{suffix}"
                 if not self.dirs:
-                    out_name = f"{li + 1}_{out_name}"
+                    out_name = f"{li}_{out_name}"
 
-                shutil.copyfile(src_abspath, loop_dir / out_name)
+                if self.move:
+                    shutil.move(src_abspath, loop_dir / out_name)
+                else:
+                    shutil.copyfile(src_abspath, loop_dir / out_name)
 
     def _build_sprite_index(self) -> dict:
         sprdir = self.sprdir
