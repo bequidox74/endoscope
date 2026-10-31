@@ -1,15 +1,24 @@
+import concurrent
+import concurrent.futures
 import json
 import logging
 import os
 import re
 import shutil
+import time
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
 from tabulate import tabulate
 
 from endoscope._internal.binary_reader import BinaryReader
-from endoscope._internal.utils import check_datafile, check_dir, parse_ranges
+from endoscope._internal.utils import (
+    check_datafile,
+    check_dir,
+    filter_ranges,
+    parse_ranges,
+    split_range,
+)
 from endoscope.commands.command import Command, command
 from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
@@ -20,6 +29,18 @@ logger = logging.getLogger(__name__)
 
 AUDIO_ARRAY_ID_NONE = 4294967295  # -1 in two's complement.
 INDEX_FILE_NAME = "sprindex.json"
+
+_LOOP_HEADERS = ["loop", "run next"]
+_FRAME_HEADERS = [
+    "frame",
+    "image",
+    "x offset",
+    "y offset",
+    "delay",
+    "flipped",
+    "audio",
+]
+_LOOKUP_HEADERS = ["loop", "frame"]
 
 
 @command("views", "views (animations) operations")
@@ -138,7 +159,17 @@ class _ExportCommand(Command):
             """,
         )
         parser.add_argument(
-            "-m--move", action="store_true", help="move files instead of copying them"
+            "-m",
+            "--move",
+            action="store_true",
+            help="move files instead of copying them",
+        )
+        parser.add_argument(
+            "-t",
+            "--threads",
+            type=int,
+            help="number of threads to use (default is 10)",
+            default=10,
         )
 
         filters_group = parser.add_mutually_exclusive_group()
@@ -154,24 +185,17 @@ class _ExportCommand(Command):
         )
 
     def execute(self, args: Namespace) -> None:
-        if args.include is not None:
-            ranges = parse_ranges(args.include)
-        elif args.exclude is not None:
-            ranges = parse_ranges(args.exclude)
-        else:
-            ranges = []
-
-        ve = ViewsExporter(
+        ViewsExporter(
             pin=args.input,
             pout=args.output,
             sprdir=args.sprite_dir,
-            ranges=ranges,
-            exclude=args.exclude is not None or not ranges,
+            include=parse_ranges(args.include),
+            exclude=parse_ranges(args.exclude),
             dirs=args.dirs,
             ext=args.extension,
             move=args.move,
+            threads=args.threads,
         )
-        ve.export_views()
 
 
 @command("lookup", "lookup views that reference a sprite")
@@ -231,41 +255,30 @@ def views_to_json(gd: GameData) -> list:
     return out
 
 
-_LOOP_HEADERS = ["loop", "run next"]
-_FRAME_HEADERS = [
-    "frame",
-    "image",
-    "x offset",
-    "y offset",
-    "delay",
-    "flipped",
-    "audio",
-]
-
-
 class ViewsExporter:
     def __init__(
         self,
         pin: Path,
         pout: Path,
         sprdir: Path,
-        ranges: list[range],
-        exclude: bool,
+        include: list[range],
+        exclude: list[range],
         dirs: bool,
         ext: str | None,
         move: bool,
+        threads: int,
     ) -> None:
         self.pin = pin
         self.pout = pout
         self.sprdir = sprdir
-        self.ranges = ranges
+        self.include = include
         self.exclude = exclude
         self.dirs = dirs
         self.ext = ext
         self.move = move
+        self.threads = threads
 
         check_datafile(self.pin)
-        check_dir(self.pout)
         check_dir(self.sprdir)
 
         if self.ext is not None:
@@ -273,9 +286,6 @@ class ViewsExporter:
 
         self.spridx_path = self.sprdir / INDEX_FILE_NAME
         self.index: dict = {}
-        self.gd: GameData
-
-    def export_views(self) -> None:
         self._prepare_index()
 
         pclib = Clib.read_file(self.pin)
@@ -288,24 +298,29 @@ class ViewsExporter:
             self.gd = gd
         logger.info("Loaded game data")
 
-        logger.info("Exporting sprites...")
-        if self.exclude:
-            indices = filter(
-                lambda i: all(i + 1 not in r for r in self.ranges), range(len(gd.views))
-            )
-            for i in indices:
-                self._export_view(i)
-        else:
-            for r in self.ranges:
-                for i in r:
-                    self._export_view(i - 1)
-        logger.info("Done")
+        logger.info("Exporting views...")
+        fullrange = range(len(gd.views))
+        self.indices = filter_ranges(fullrange, self.include, self.exclude)
+        ranges = split_range(0, len(gd.views), self.threads)
+
+        start = time.time()
+        with concurrent.futures.ThreadPoolExecutor(self.threads) as executor:
+            for i, r in enumerate(ranges):
+                logger.debug("Started worker thread %d", i)
+                executor.submit(self._export_views, r[0], r[1])
+        end = time.time()
+        logger.info("Done in %.2f seconds", end - start)
+
+    def _export_views(self, start: int, end: int) -> None:
+        for i in range(start, end):
+            idx = self.indices[i]
+            self._export_view(idx)
 
     def _prepare_index(self) -> None:
         index: dict
         if self.spridx_path.exists():
             logger.info(
-                "Found %s, reusing. (delete to force sprite reindexing)",
+                "Found %s, reusing. (Delete to force sprite reindexing.)",
                 INDEX_FILE_NAME,
             )
             with open(self.spridx_path, "r", encoding="utf-8") as sin:
@@ -320,7 +335,7 @@ class ViewsExporter:
 
     def _export_view(self, i: int) -> None:
         name = self.gd.view_names[i]
-        logger.debug('Exporting view %d "%s"', i, name)
+        logger.info('Exporting view %d "%s"', i, name)
         view_dir = self.pout / f"{i + 1}_{name}"
         view = self.gd.views[i]
 
@@ -384,9 +399,6 @@ class ViewsExporter:
             out[n] = relpath
 
         return out
-
-
-_LOOKUP_HEADERS = ["loop", "frame"]
 
 
 def lookup_sprite(pin: Path, sprid: int) -> None:

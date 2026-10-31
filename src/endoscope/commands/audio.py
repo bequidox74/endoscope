@@ -36,29 +36,23 @@ def _init_rename(subp: _SubParsersAction) -> None:
 
 
 def _main_rename(args: Namespace) -> None:
-    fp = AudioFileRenamer(args.input, args.audio_dir)
-    fp.rename(args.dry_run)
+    AudioFileRenamer(args.input, args.audio_dir, args.dry_run)
 
 
 class AudioFileRenamer:
     def __init__(
         self,
         pin: Path,
-        audio_dir: Path,
+        paud: Path,
+        dry_run: bool,
     ) -> None:
-        self.pin = pin
-        self.audio_dir = audio_dir
-
-    def rename(self, dry_run: bool) -> None:
-        pin = self.pin
-        paud = self.audio_dir
         check_datafile(pin)
         check_dir(paud)
 
         gd = utils.read_gamedata(pin)
         file_index = self._build_index(gd)
 
-        for p in self.audio_dir.iterdir():
+        for p in paud.iterdir():
             try:
                 name = file_index[p.name]
             except KeyError:
@@ -68,9 +62,7 @@ class AudioFileRenamer:
             old_name = p.stem
             if not dry_run:
                 shutil.move(p, p.with_stem(name))
-                logger.info("Renamed %s to %s", old_name, name)
-            else:
-                logger.info("Would have renamed %s to %s", old_name, name)
+            logger.info("Renamed %s to %s", old_name, name)
 
     def _build_index(self, gd: GameData) -> dict[str, str]:
         index = {}

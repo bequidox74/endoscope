@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from argparse import ArgumentParser, Namespace
 from fnmatch import fnmatch
 from pathlib import Path
@@ -86,6 +87,7 @@ def unpack(
     clib, off_clib = Clib.read_file(pin)
     logger.info("CLIB v%d listing %d files", clib.version, len(clib.files))
     count = 0
+    start = time.time()
     for f in clib.files:
         if not _filter(f.name, include, exclude):
             continue
@@ -98,9 +100,9 @@ def unpack(
                 utils.chunked_copy(sin, sout, offset, f.size, chunk_size)
 
         count += 1
-        prefix = "Would have extracted" if dry_run else "Extracted"
-        logger.info("%s '%s' (%d bytes)", prefix, f.name, f.size)
-    logger.info("Done. %d assets extracted to %s", count, pout)
+        logger.info("Extracted '%s' (%d bytes)", f.name, f.size)
+    end = time.time()
+    logger.info("Done extracting %d assets in %.2f seconds", count, end - start)
 
 
 def _filter(fname: str, inc: list[str], exc: list[str]) -> bool:
