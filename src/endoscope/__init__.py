@@ -25,6 +25,11 @@ def main() -> None:
         help="logging level",
         default="info",
     )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="profile the program",
+    )
 
     subp = parser.add_subparsers(title="commands", required=True)
     unpack.init_parser(subp)
@@ -39,7 +44,15 @@ def main() -> None:
         level=getattr(logging, args.log_level.upper()),
     )
     logging.root.disabled = args.quiet
-    args.func(args)  # pass control to the command
+
+    if args.profile:
+        import profiling.tracing
+
+        with profiling.tracing.Profile() as pr:
+            args.func(args)
+        pr.print_stats()
+    else:
+        args.func(args)  # pass control to the command
 
 
 if __name__ == "__main__":
