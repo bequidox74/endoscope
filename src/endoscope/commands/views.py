@@ -24,7 +24,7 @@ from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
 from endoscope.data.utils import read_gamedata
 
-logger = logging.getLogger(__name__)
+logger = logging.root
 
 
 AUDIO_ARRAY_ID_NONE = 4294967295  # -1 in two's complement.

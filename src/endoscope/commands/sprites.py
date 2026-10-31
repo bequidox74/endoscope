@@ -21,7 +21,7 @@ from endoscope.commands.command import Command, command
 from endoscope.data.clib import Clib
 from endoscope.data.spriteset import Sprite, SpriteIndex, SpriteSet
 
-logger = logging.getLogger(__name__)
+logger = logging.root
 
 
 @command("sprites", "extract sprites")

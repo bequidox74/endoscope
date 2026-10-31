@@ -9,7 +9,7 @@ from endoscope._internal import utils
 from endoscope._internal.utils import check_datafile, check_dir
 from endoscope.data.clib import Clib
 
-logger = logging.getLogger(__name__)
+logger = logging.root
 
 CHUNK_SIZE_KIB = 64
 

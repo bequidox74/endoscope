@@ -7,7 +7,7 @@ from endoscope._internal.utils import check_datafile, check_dir
 from endoscope.data import utils
 from endoscope.data.gamefile import GameData
 
-logger = logging.getLogger(__name__)
+logger = logging.root
 
 
 def init_parser(subp: _SubParsersAction) -> None:

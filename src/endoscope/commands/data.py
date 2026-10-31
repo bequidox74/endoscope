@@ -9,7 +9,7 @@ from endoscope.data import utils
 from endoscope.data.character import Character
 from endoscope.data.gamefile import AudioClip, GameData
 
-logger = logging.getLogger(__name__)
+logger = logging.root
 
 
 _sections: dict = {}
