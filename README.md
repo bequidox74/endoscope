@@ -7,11 +7,9 @@ Features:
 
 - Use as a Python library or a command line tool.
 - Unpack assets (`unpack`). Supports `.exe`, `.ags`, and `.vox`.
+- Unpack sprites (`sprites`). Uses threads to speed up extraction.
 - Export game data (from `game28.dta`) to JSON (`data`).
 - Export view/animation frames (`view export`).
-  - ⚠️ You will have to extract the sprites first with
-    [AGSUnpacker](https://github.com/adm244/AGSUnpacker). Endoscope can not
-    (yet) decode the sprites itself.
 - Export view data to JSON (`view json`).
 - Print info about a view (`view info`).
 - Look up which views reference a given sprite ID (`view lookup`).
@@ -23,12 +21,6 @@ Licensed under the MIT license.
 
 ## Planned features / TODO
 
-- **Self-sufficiency for sprite extraction.** Extraction of sprites from AGS
-  games is rather complicated. Sprites with at most 256 colors get stored as
-  indices into a pallete, otherwise they are stored directly. Sprite data may be
-  compressed with RLE or LZW (depending on the game), and naive porting of the
-  corresponding C++ routines to Python results in horrible performance. numpy is
-  usually required, which makes things all the more complicated.
 - **Tkinter GUI.** Some people prefer GUI to CLI, so a portable and
   Python-native GUI would be appreciated.
 - **Room background extraction.** Room backgrounds are similar to sprites, but
@@ -59,3 +51,5 @@ line. All commands have help messages.
 Python dependencies are listed in `pyproject.toml`.
 
 - [tabulate](https://pypi.org/project/tabulate/) for formatting tabular data.
+- [numpy](https://pypi.org/project/numpy/) because sprite extraction is horribly
+  slow otherwise.
