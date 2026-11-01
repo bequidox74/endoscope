@@ -150,6 +150,11 @@ class BitmapExtractor:
         check(ok, "LZW decompression failed")
         decomp = decomp[8:]
         bitmap = decode.sequential(decomp)
-        Image.frombuffer("RGBA", (rm.width, rm.height), bitmap).convert("RGB").save(
-            self.pout / f"{name}.png"
-        )
+
+        out_path = self.pout / f"{name}/bg.png"
+        os.makedirs(out_path.parent, exist_ok=True)
+        Image.frombuffer(
+            "RGBA",
+            (rm.width, rm.height),
+            bitmap,
+        ).convert("RGB").save(out_path)
