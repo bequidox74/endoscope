@@ -99,7 +99,7 @@ class BitmapExtractor:
         self.nthreads = nthreads
         self.dry_run = dry_run
         self.glob = glob
-        self.ext = extension
+        self.extension = extension
 
         check_dir(roomdir)
         os.makedirs(pout, exist_ok=True)
@@ -140,17 +140,39 @@ class BitmapExtractor:
                     room = Room.read(br)
                     if not what or "backgrounds" in what:
                         self._extract_bg(p.stem, br, room)
-                        sin.seek(0)
                 except Exception as exc:  # pylint: disable=broad-exception-caught
                     logger.exception(
                         "Error while processing room %s", p.name, exc_info=exc
                     )
 
     def _extract_bg(self, name: str, br: BinaryReader, rm: Room) -> None:
-        mainblk = rm.blocks[Room.BlockType.MAIN]
+        base_path = self.pout / f"{name}/"
+
+        ### Primary BG ###
+        mainblk = rm.blocks[Room.BlockID.MAIN]
         bmoffset = mainblk[1] + rm.off_bitmaps
         br.seek(bmoffset)
 
+        bitmap = self._read_lzw(br)
+        out_path = base_path / f"bg_0.{self.extension}"
+        self._save_bitmap(out_path, rm.width, rm.height, bitmap)
+
+        ### Secondary BGs ###
+        try:
+            bgblk = rm.blocks[Room.BlockID.ANIMBG]
+        except KeyError:
+            return  # no secondary BGs
+        br.seek(bgblk[1] + bgblk[0].off_data)
+        nframes = br.u8()
+        br.u8()  # animation speed
+
+        _ = [bool(br.u8()) for _ in range(nframes)]  # palette sharing; unused
+        for i in range(nframes - 1):
+            out_path = base_path / f"bg_{i + 1}.{self.extension}"
+            bitmap = self._read_lzw(br)
+            self._save_bitmap(out_path, rm.width, rm.height, bitmap)
+
+    def _read_lzw(self, br: BinaryReader) -> bytes:
         br.skip(256 * 4)  # palette
         origsize = br.u32()
         compsize = br.u32()
@@ -158,16 +180,15 @@ class BitmapExtractor:
         ok, decomp = decode.lzw(raw, origsize)
         check(ok, "LZW decompression failed")
         decomp = decomp[8:]
-        bitmap = decode.sequential(decomp)
+        return decode.sequential(decomp)
 
-        out_path = self.pout / f"{name}/bg.{self.ext}"
+    def _save_bitmap(self, out_path: Path, w: int, h: int, bitmap: bytes) -> None:
+        if self.dry_run:
+            return
         os.makedirs(out_path.parent, exist_ok=True)
-        img = Image.frombuffer(
-            "RGBA",
-            (rm.width, rm.height),
-            bitmap,
-        ).convert("RGB")
-
-        if not self.dry_run:
-            img.save(out_path)
-            logger.debug("Saved %s", out_path)
+        img = Image.frombuffer("RGBA", (w, h), bitmap)
+        img = img.convert(
+            "RGB"
+        )  # there's no transparency, so we're not losing anything
+        img.save(out_path)
+        logger.debug("Saved %s", out_path)

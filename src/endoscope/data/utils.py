@@ -14,3 +14,7 @@ def read_gamedata(path: Path) -> GameData:
         sin.seek(pclib.offset + file.offset)
         br = BinaryReader(sin)
         return GameData.read(br)
+
+
+def read_strmap(br: BinaryReader) -> dict[str, str]:
+    return {br.pstr(): br.pstr() for _ in range(br.u32())}

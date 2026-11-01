@@ -1,11 +1,13 @@
 # See Common/game/room_file.cpp
+import struct
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import Enum, IntEnum
 from typing import ClassVar
 
 from endoscope._internal.binary_reader import BinaryReader
 from endoscope.data import encrypt
 from endoscope.data.block import Block
+from endoscope.data.utils import read_strmap
 
 ### Constants ###
 MIN_ROOM_HOTSPOTS = 20
@@ -98,7 +100,7 @@ class Region:
 
 @dataclass
 class Room:
-    class BlockType(IntEnum):
+    class BlockID(Enum):
         NONE = 0
         MAIN = 1
         SCRIPT = 2
@@ -109,12 +111,14 @@ class Room:
         COMPSCR3 = 7
         PROPERTIES = 8
         OBJECT_SC_NAMES = 9
+        EXT_SOPTS = "ext_sopts"
         EOF = 0xFF
 
     ROOM_BLOCK_FLAGS: ClassVar = Block.Flag.NUM_ID8 | Block.Flag.FILE64
     SUFFIX: ClassVar = ".crm"
+    _SKIP: ClassVar = (BlockID.COMPSCR, BlockID.COMPSCR2, BlockID.COMPSCR3)
 
-    blocks: dict[Room.BlockType | str, tuple[Block, int]]  # (block, offset)
+    blocks: dict[Room.BlockID | str, tuple[Block, int]]  # (block, offset)
 
     ### Header ###
     version: int  # i16
@@ -157,6 +161,21 @@ class Room:
     regions: list[Region]  # [num_regions]
     off_bitmaps: int
 
+    ### Compiled script (ignored) ###
+
+    ### Object names ###
+    obj_names: list[str]  # pstr[u8]
+    obj_scrnames: list[str]  # pstr[u8]
+
+    ### Properties ###
+    props_ver: int  # u32
+    room_props: dict[str, str]
+    hotspot_props: list[dict[str, str]]
+    obj_props: list[dict[str, str]]
+
+    ### EXT_SOPTS ###
+    stropts: dict[str, str]
+
     @staticmethod
     def read(br: BinaryReader) -> Room:
         rm = Room.__new__(Room)
@@ -166,22 +185,42 @@ class Room:
         rm.blocks = {}
         while True:
             off_blk = br.tell() - start
-            blk = Block.read(br, Room.ROOM_BLOCK_FLAGS)
+            try:
+                blk = Block.read(br, Room.ROOM_BLOCK_FLAGS)
+            except struct.error:
+                break
 
-            blkid = (
-                Room.BlockType(blk.id) if blk.id != Room.BlockType.NONE else blk.extid
-            )
+            blkid = Room.BlockID(blk.id) if blk.id != Room.BlockID.NONE else blk.extid
+            blkend = br.tell()
             assert blkid is not None
             rm.blocks[blkid] = (blk, off_blk)
 
             br.seek(start + off_blk + blk.off_data)
-            if blk.id == Room.BlockType.MAIN:
+            if blkid == Room.BlockID.MAIN:
                 Room._read_main(rm, br, off_blk)
-            elif blk.id == Room.BlockType.EOF:
-                break
-            else:
-                break
-                # raise NotImplementedError
+            elif blkid == Room.BlockID.OBJNAMES:
+                rm.obj_names = [br.pstr() for _ in range(br.u8())]
+            elif blkid == Room.BlockID.OBJECT_SC_NAMES:
+                rm.obj_scrnames = [br.pstr() for _ in range(br.u8())]
+            elif blkid == Room.BlockID.EXT_SOPTS:
+                rm.stropts = read_strmap(br)
+
+            elif blkid == Room.BlockID.PROPERTIES:
+                rm.props_ver = br.u32()
+                br.u32()  # property version
+                rm.room_props = read_strmap(br)
+
+                rm.hotspot_props = []
+                for _ in range(len(rm.hotspots)):
+                    br.u32()  # ver
+                    rm.hotspot_props.append(read_strmap(br))
+
+                rm.obj_props = []
+                for _ in range(len(rm.objects)):
+                    br.u32()  # ver
+                    rm.obj_props.append(read_strmap(br))
+
+            br.seek(blkend)
 
         return rm
 
