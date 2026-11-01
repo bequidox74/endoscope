@@ -63,6 +63,12 @@ class _BitmapsCommand(Command):
             help="file name glob pattern (e.g. *.crm)",
             default="*.crm",
         )
+        parser.add_argument(
+            "-x",
+            "--extension",
+            help="extension to save the files with (e.g. png, jpg, tga, tiff, etc.)",
+            default="png",
+        )
 
     def execute(self, args: Namespace) -> None:
         BitmapExtractor(
@@ -72,6 +78,7 @@ class _BitmapsCommand(Command):
             args.threads,
             args.dry_run,
             args.glob,
+            args.extension,
         )
 
 
@@ -84,6 +91,7 @@ class BitmapExtractor:
         nthreads: int,
         dry_run: bool,
         glob: str,
+        extension: str,
     ) -> None:
         self.roomdir = roomdir
         self.what = what
@@ -91,6 +99,7 @@ class BitmapExtractor:
         self.nthreads = nthreads
         self.dry_run = dry_run
         self.glob = glob
+        self.ext = extension
 
         check_dir(roomdir)
         os.makedirs(pout, exist_ok=True)
@@ -151,10 +160,14 @@ class BitmapExtractor:
         decomp = decomp[8:]
         bitmap = decode.sequential(decomp)
 
-        out_path = self.pout / f"{name}/bg.png"
+        out_path = self.pout / f"{name}/bg.{self.ext}"
         os.makedirs(out_path.parent, exist_ok=True)
-        Image.frombuffer(
+        img = Image.frombuffer(
             "RGBA",
             (rm.width, rm.height),
             bitmap,
-        ).convert("RGB").save(out_path)
+        ).convert("RGB")
+
+        if not self.dry_run:
+            img.save(out_path)
+            logger.debug("Saved %s", out_path)
