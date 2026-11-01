@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import NamedTuple
 
 
 class Color(ABC):
@@ -37,7 +38,6 @@ class ColorRGBA(Color):
         return bytes((self.r, self.g, self.b, self.a))
 
 
-@dataclass
-class Slot:
+class Slot(NamedTuple):
     offset: int
     size: int

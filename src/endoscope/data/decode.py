@@ -1,5 +1,9 @@
 import numpy as np
 
+N = 4096
+F = 16
+MASK_N = N - 1
+
 # these dogshit sprites are stored as little endian ARGB on the disk.
 _PERM = [2, 1, 0, 3]  # ARGB (BGRA in LE) -> RGBA
 
@@ -41,6 +45,111 @@ def rle(bpp: int, size: int, data: bytes) -> bytes:
         di += i
 
     return b"".join(chunks)
+
+
+# port of lzwexpand (actually LZSS) in Common/util/lzw.cpp with optimizations.
+# used primarily for room backgrounds.
+def lzw(src: bytes, dst_sz: int) -> tuple[bool, bytes]:  # -> (ok, dst)
+    src_sz = len(src)
+    if dst_sz == 0:
+        return False, b""
+
+    lz = bytearray(N)  # LZSS ring buffer
+    dst = bytearray(dst_sz)  # output buffer
+    src_ptr = 0
+    dst_ptr = 0
+    i = N - F  # index into the ring buffer, must match encoder
+
+    # while we still have space:
+    while src_ptr < src_sz and dst_ptr < dst_sz:
+        bits = src[src_ptr]  # 8 control bits, LE order (0 - literal, 1 - backref)
+        src_ptr += 1
+
+        # fast path for all 0 bits (literal copy)
+        if bits == 0 and src_ptr + 8 <= src_sz and dst_ptr + 8 <= dst_sz:
+            chunk = src[src_ptr : src_ptr + 8]
+            src_ptr += 8
+            dst[dst_ptr : dst_ptr + 8] = chunk
+            dst_ptr += 8
+
+            # ring buffer stuff
+            e = i + 8
+            if e <= N:  # enough space to copy directly
+                lz[i:e] = chunk
+            else:  # otherwise, split and write parts
+                k = N - i
+                lz[i:] = chunk[:k]
+                lz[: e - N] = chunk[k:]
+            i = e & MASK_N  # advance i modulo (N - 1)
+            continue
+
+        # mask (control bits) loop
+        mask = 0x01
+        while mask & 0xFF:  # after 8 iters the low byte will overflow
+            # control bit:
+            if bits & mask:  # 1 - backref
+                if src_ptr > src_sz - 2:  # need 2 bytes from src
+                    break
+                j = src[src_ptr] | (src[src_ptr + 1] << 8)  # construct an i16
+                src_ptr += 2
+
+                # backref length (bits 12-15 (4)). lengths range 3-18;
+                # less is below the break-even point and less inefficient.
+                length = ((j >> 12) & 15) + 3
+                # offset in the ring buffer modulo (N - 1) (bits 0-11 (12)).
+                # high bits (length) discarded by &.
+                j = (i - j - 1) & MASK_N
+
+                if dst_ptr > dst_sz - length:
+                    break  # not enough space in dst
+
+                d = (i - j) & MASK_N  # match distance (0 means N)
+
+                # fast path for copying
+                if d == 0 or d >= length:  # source already populated: plain copy
+                    e = j + length
+                    if e <= N:
+                        chunk = lz[j:e]
+                    else:
+                        chunk = lz[j:] + lz[: e - N]
+                else:  # overlap: repeat first d bytes
+                    e = j + d  # ring buffer stuff
+                    if e <= N:
+                        seed = lz[j:e]
+                    else:
+                        seed = lz[j:] + lz[: e - N]
+                    chunk = (seed * (length // d + 1))[:length]
+
+                dst[dst_ptr : dst_ptr + length] = chunk
+                dst_ptr += length
+
+                # ring buffer stuff, same as before.
+                e = i + length
+                if e <= N:
+                    lz[i:e] = chunk
+                else:
+                    k = N - i
+                    lz[i:] = chunk[:k]
+                    lz[: e - N] = chunk[k:]
+                i = e & MASK_N
+
+            # 0 - literal
+            else:
+                if src_ptr >= src_sz:
+                    break  # not enough data in src
+                ch = src[src_ptr]
+                src_ptr += 1
+                lz[i] = ch  # copy
+                dst[dst_ptr] = ch
+                dst_ptr += 1
+                i = (i + 1) & MASK_N  # advance i modulo (N - 1)
+
+            if dst_ptr >= dst_sz or src_ptr >= src_sz:
+                break  # ran out of space
+
+            mask <<= 1  # next control bit
+
+    return src_ptr == src_sz, dst[:dst_ptr].take_bytes()
 
 
 def argb8888(b: bytes) -> int:

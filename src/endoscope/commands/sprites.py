@@ -177,5 +177,5 @@ def _save_bitmap(bitmap: bytes, w: int, h: int, p: Path) -> None:
         if p.suffix.casefold() in (".jpg", ".JPEG"):
             image = image.convert("RGB")
         image.save(p)
-    except Exception as exc:
-        logger.error("Error while saving sprite %s", p, exc_info=exc)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.exception("Error while saving sprite %s", p, exc_info=exc)
