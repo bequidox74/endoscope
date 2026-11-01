@@ -16,8 +16,6 @@ from endoscope.commands.command import Command, command
 from endoscope.data import decode
 from endoscope.data.room import Room
 
-TARGETS = ("backgrounds", "regions", "hotspots", "walkareas")
-
 logger = logging.root
 
 
@@ -37,12 +35,6 @@ class RoomsCommand(Command):
 class _BitmapsCommand(Command):
     def _init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument("output", type=Path, help="output directory")
-        parser.add_argument(
-            "what",
-            nargs="*",
-            help="what to export",
-            choices=TARGETS,
-        )
 
         parser.add_argument(
             "-t",
@@ -73,7 +65,6 @@ class _BitmapsCommand(Command):
     def execute(self, args: Namespace) -> None:
         BitmapExtractor(
             args.roomdir,
-            args.what,
             args.output,
             args.threads,
             args.dry_run,
@@ -86,7 +77,6 @@ class BitmapExtractor:
     def __init__(
         self,
         roomdir: Path,
-        what: set[str],
         pout: Path,
         nthreads: int,
         dry_run: bool,
@@ -94,7 +84,6 @@ class BitmapExtractor:
         extension: str,
     ) -> None:
         self.roomdir = roomdir
-        self.what = what
         self.pout = pout
         self.nthreads = nthreads
         self.dry_run = dry_run
@@ -129,7 +118,6 @@ class BitmapExtractor:
         )
 
     def _process_batch(self, batch: Iterable[Path]) -> None:
-        what = self.what
         for p in batch:
             logger.debug("Processing room %s", p.name)
             if p in self.openfiles:
@@ -138,15 +126,15 @@ class BitmapExtractor:
                 try:
                     br = BinaryReader(sin)
                     room = Room.read(br)
-                    if not what or "backgrounds" in what:
-                        self._extract_bg(p.stem, br, room)
+                    self._extract(p.stem, br, room)
                 except Exception as exc:  # pylint: disable=broad-exception-caught
                     logger.exception(
                         "Error while processing room %s", p.name, exc_info=exc
                     )
 
-    def _extract_bg(self, name: str, br: BinaryReader, rm: Room) -> None:
+    def _extract(self, name: str, br: BinaryReader, rm: Room) -> None:
         base_path = self.pout / f"{name}/"
+        ext = self.extension
 
         ### Primary BG ###
         mainblk = rm.blocks[Room.BlockID.MAIN]
@@ -154,7 +142,8 @@ class BitmapExtractor:
         br.seek(bmoffset)
 
         bitmap = self._read_lzw(br)
-        out_path = base_path / f"bg_0.{self.extension}"
+
+        out_path = base_path / f"bg_0.{ext}"
         self._save_bitmap(out_path, rm.width, rm.height, bitmap)
 
         ### Secondary BGs ###
@@ -187,8 +176,9 @@ class BitmapExtractor:
             return
         os.makedirs(out_path.parent, exist_ok=True)
         img = Image.frombuffer("RGBA", (w, h), bitmap)
-        img = img.convert(
-            "RGB"
-        )  # there's no transparency, so we're not losing anything
-        img.save(out_path)
-        logger.debug("Saved %s", out_path)
+        img = img.convert("RGB")
+        try:
+            img.save(out_path)
+            logger.debug("Saved %s", out_path)
+        except ValueError as exc:
+            logger.exception("Unable to save %s", out_path, exc_info=exc)

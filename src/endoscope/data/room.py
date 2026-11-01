@@ -1,7 +1,6 @@
 # See Common/game/room_file.cpp
-import struct
 from dataclasses import dataclass
-from enum import Enum, IntEnum
+from enum import IntEnum
 from typing import ClassVar
 
 from endoscope._internal.binary_reader import BinaryReader
@@ -100,7 +99,7 @@ class Region:
 
 @dataclass
 class Room:
-    class BlockID(Enum):
+    class BlockID(IntEnum):
         NONE = 0
         MAIN = 1
         SCRIPT = 2
@@ -111,9 +110,9 @@ class Room:
         COMPSCR3 = 7
         PROPERTIES = 8
         OBJECT_SC_NAMES = 9
-        EXT_SOPTS = "ext_sopts"
         EOF = 0xFF
 
+    EXT_SOPTS = "ext_sopts"
     ROOM_BLOCK_FLAGS: ClassVar = Block.Flag.NUM_ID8 | Block.Flag.FILE64
     SUFFIX: ClassVar = ".crm"
     _SKIP: ClassVar = (BlockID.COMPSCR, BlockID.COMPSCR2, BlockID.COMPSCR3)
@@ -185,10 +184,10 @@ class Room:
         rm.blocks = {}
         while True:
             off_blk = br.tell() - start
-            try:
-                blk = Block.read(br, Room.ROOM_BLOCK_FLAGS)
-            except struct.error:
+            byte = int.from_bytes(br.peek(1))
+            if byte == Room.BlockID.EOF:
                 break
+            blk = Block.read(br, Room.ROOM_BLOCK_FLAGS)
 
             blkid = Room.BlockID(blk.id) if blk.id != Room.BlockID.NONE else blk.extid
             blkend = br.tell()
@@ -202,7 +201,7 @@ class Room:
                 rm.obj_names = [br.pstr() for _ in range(br.u8())]
             elif blkid == Room.BlockID.OBJECT_SC_NAMES:
                 rm.obj_scrnames = [br.pstr() for _ in range(br.u8())]
-            elif blkid == Room.BlockID.EXT_SOPTS:
+            elif blkid == Room.EXT_SOPTS:
                 rm.stropts = read_strmap(br)
 
             elif blkid == Room.BlockID.PROPERTIES:
