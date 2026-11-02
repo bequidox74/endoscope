@@ -19,11 +19,15 @@ def palette_256() -> list[int]:
         s = 0.55 + 0.45 * ((i * 0.7548776662) % 1.0)  # vary saturation
         v = 0.55 + 0.45 * ((i * 0.5698402910) % 1.0)  # vary brightness
         r, g, b = colorsys.hsv_to_rgb(h, s, v)
-        palette.append(int.from_bytes((
-            int(r * 255),
-            int(g * 255),
-            int(b * 255),
-        )))
+        palette.append(
+            int.from_bytes(
+                (
+                    int(r * 255),
+                    int(g * 255),
+                    int(b * 255),
+                )
+            )
+        )
     palette[0] = 0
     return palette
 
@@ -41,6 +45,10 @@ def to_rgb(data: bytes) -> bytes:
 
 
 def rle(bpp: int, size: int, data: bytes) -> bytes:
+    """
+    Offline RLE decompression. Slighly faster than the online version.
+    Used primarily for sprite extraction.
+    """
     chunks = []
     append = chunks.append
     n = len(data)
@@ -75,6 +83,11 @@ def rle(bpp: int, size: int, data: bytes) -> bytes:
 
 
 def rle_online(bpp: int, size: int, br: BinaryReader) -> tuple[bytes, int]:
+    """
+    Online version of RLE decompression used when the input size is not known
+    in advance. Slightly slower that the offline version. Used primarily for
+    extracting room masks.
+    """
     if bpp not in (1, 2, 4):
         raise ValueError(f"Illegal BPP: {bpp}")
 

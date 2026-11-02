@@ -158,26 +158,36 @@ class SpriteExtractor:
 
                 off_sprite = self.off_sprset + self.spridx.offsets[idx]
                 sin.seek(off_sprite)
-
                 sprite = Sprite.read_slot(
                     self.sprset.version, self.sprset.compression, br
                 )
                 if sprite is None:
+                    continue  # empty slots may theoretically appear.
+
+                file_path = self.pout / f"{idx}.{self.extension}"
+                sin.seek(off_sprite + sprite.off_data)
+
+                try:
+                    bitmap = sprite.read_bitmap(br)
+                except Exception as exc:  # pylint: disable=broad-exception-caught
+                    logger.exception(
+                        "Error while reading bitmap of %s",
+                        file_path,
+                        exc_info=exc,
+                    )
                     continue
 
-                sin.seek(off_sprite + sprite.off_data)
-                bitmap = sprite.read_bitmap(br)
-                file_path = self.pout / f"{idx}.{self.extension}"
-                if not self.dry_run:
-                    _save_bitmap(bitmap, sprite.width, sprite.height, file_path)
+                self._save_bitmap(bitmap, sprite.width, sprite.height, file_path)
                 logger.info("Extracted %s", file_path)
 
-
-def _save_bitmap(bitmap: bytes, w: int, h: int, p: Path) -> None:
-    try:
-        image = Image.frombytes("RGBA", (w, h), bitmap)
-        if p.suffix.casefold() in (".jpg", ".JPEG"):
-            image = image.convert("RGB")
-        image.save(p)
-    except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.exception("Error while saving sprite %s", p, exc_info=exc)
+    def _save_bitmap(self, bitmap: bytes, w: int, h: int, p: Path) -> None:
+        if self.dry_run:
+            return
+        try:
+            image = Image.frombytes("RGBA", (w, h), bitmap)
+            if p.suffix.casefold() in (".jpg", ".JPEG"):
+                image = image.convert("RGB")
+            image.save(p)
+            logger.debug("Saved %s", p)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.exception("Error while saving sprite %s", p, exc_info=exc)

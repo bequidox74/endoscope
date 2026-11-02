@@ -130,7 +130,9 @@ class Sprite:
         )
 
     def read_bitmap(self, br: BinaryReader) -> bytes:
-        raw = br.read(self.len_data)
+        if self.bpp != 4:
+            raise NotImplementedError("only ARGB (bpp=4) is supported")
+
         decomp: bytes = b""
         size = self.width * self.height
         has_palette = self.palette_fmt is not Sprite.Palette.UNDEFINED
@@ -142,12 +144,12 @@ class Sprite:
             bpp = self.bpp
 
         if self.compression == Sprite.Compression.NONE:
-            decomp = raw
+            decomp = br.read(self.len_data)
         elif self.compression == Sprite.Compression.RLE:
-            decomp = decode.rle(bpp, size, raw)
+            decomp = decode.rle(bpp, size, br.read(self.len_data))
         elif self.compression == Sprite.Compression.LZW:
-            # decomp = decode.lzw(bpp, size, raw)
-            raise NotImplementedError
+            ok, decomp = decode.lzw(br.read(self.len_data), size * bpp)
+            check(ok, "LZW decompression failed")
 
         if has_palette:  # indexed
             return decode.indexed_to_rgba(decomp, self.palette)
