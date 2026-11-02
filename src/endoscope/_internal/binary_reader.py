@@ -4,6 +4,17 @@ from typing import BinaryIO
 
 ENCODING = "latin-1"
 
+I8 = struct.Struct("<b")
+U8 = struct.Struct("<B")
+I16 = struct.Struct("<h")
+U16 = struct.Struct("<H")
+I32 = struct.Struct("<i")
+U32 = struct.Struct("<I")
+I64 = struct.Struct("<q")
+U64 = struct.Struct("<Q")
+F32 = struct.Struct("<f")
+F64 = struct.Struct("<d")
+
 
 class BinaryReader:
     def __init__(
@@ -35,43 +46,43 @@ class BinaryReader:
 
     def i8(self) -> int:
         v = self.stream.read(1)
-        return struct.unpack("<b", v)[0]
+        return I8.unpack(v)[0]
 
     def u8(self) -> int:
         v = self.stream.read(1)
-        return struct.unpack("<B", v)[0]
+        return U8.unpack(v)[0]
 
     def i16(self) -> int:
         v = self.stream.read(2)
-        return struct.unpack("<h", v)[0]
+        return I16.unpack(v)[0]
 
     def u16(self) -> int:
         v = self.stream.read(2)
-        return struct.unpack("<H", v)[0]
+        return U16.unpack(v)[0]
 
     def i32(self) -> int:
         v = self.stream.read(4)
-        return struct.unpack("<i", v)[0]
+        return I32.unpack(v)[0]
 
     def u32(self) -> int:
         v = self.stream.read(4)
-        return struct.unpack("<I", v)[0]
+        return U32.unpack(v)[0]
 
     def i64(self) -> int:
         v = self.stream.read(8)
-        return struct.unpack("<q", v)[0]
+        return I64.unpack(v)[0]
 
     def u64(self) -> int:
         v = self.stream.read(8)
-        return struct.unpack("<Q", v)[0]
+        return U64.unpack(v)[0]
 
     def f32(self) -> float:
         v = self.stream.read(4)
-        return struct.unpack("<f", v)[0]
+        return F32.unpack(v)[0]
 
     def f64(self) -> float:
         v = self.stream.read(8)
-        return struct.unpack("<d", v)[0]
+        return F64.unpack(v)[0]
 
     def cstr(self) -> str:
         data = bytearray()

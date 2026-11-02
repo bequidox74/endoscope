@@ -1,6 +1,7 @@
 import itertools
 import logging
 import os
+import random
 import time
 from argparse import ArgumentParser, Namespace
 from collections.abc import Iterable
@@ -144,7 +145,13 @@ class BitmapExtractor:
         bitmap = self._read_lzw(br)
 
         out_path = base_path / f"bg_0.{ext}"
-        self._save_bitmap(out_path, rm.width, rm.height, bitmap)
+        self._save_bitmap(out_path, rm.width, rm.height, bitmap, True)
+
+        ### Masks ###
+        self._extract_mask(base_path / f"regions.{ext}", br)
+        self._extract_mask(base_path / f"walkareas.{ext}", br)
+        self._extract_mask(base_path / f"walkbehinds.{ext}", br)
+        self._extract_mask(base_path / f"hotspots.{ext}", br)
 
         ### Secondary BGs ###
         try:
@@ -159,7 +166,7 @@ class BitmapExtractor:
         for i in range(nframes - 1):
             out_path = base_path / f"bg_{i + 1}.{self.extension}"
             bitmap = self._read_lzw(br)
-            self._save_bitmap(out_path, rm.width, rm.height, bitmap)
+            self._save_bitmap(out_path, rm.width, rm.height, bitmap, True)
 
     def _read_lzw(self, br: BinaryReader) -> bytes:
         br.skip(256 * 4)  # palette
@@ -171,12 +178,30 @@ class BitmapExtractor:
         decomp = decomp[8:]
         return decode.sequential(decomp)
 
-    def _save_bitmap(self, out_path: Path, w: int, h: int, bitmap: bytes) -> None:
+    def _extract_mask(self, pout: Path, br: BinaryReader) -> None:
+        w = br.u16()
+        h = br.u16()
+        try:
+            decomp, read = decode.rle_online(1, w * h, br)
+            # palette = [int.from_bytes(br.read(3)) for _ in range(256)]
+            palette = decode.PALETTE256
+            br.skip(3 * 256)
+            if read != 0:
+                bitmap = decode.indexed_to_rgb(decomp, palette)
+                self._save_bitmap(pout, w, h, bitmap, False)
+        except ValueError as exc:
+            logger.exception("Unable to extract mask %s", pout, exc_info=exc)
+
+    def _save_bitmap(self, out_path: Path, w: int, h: int, bitmap: bytes, rgba: bool) -> None:
         if self.dry_run:
             return
         os.makedirs(out_path.parent, exist_ok=True)
-        img = Image.frombuffer("RGBA", (w, h), bitmap)
-        img = img.convert("RGB")
+
+        fmt = "RGBA" if rgba else "RGB"
+        img = Image.frombuffer(fmt, (w, h), bitmap)
+        if rgba:
+            img = img.convert("RGB")
+
         try:
             img.save(out_path)
             logger.debug("Saved %s", out_path)

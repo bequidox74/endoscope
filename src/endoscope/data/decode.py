@@ -1,4 +1,8 @@
+import colorsys
+
 import numpy as np
+
+from endoscope._internal.binary_reader import BinaryReader
 
 N = 4096
 F = 16
@@ -8,9 +12,32 @@ MASK_N = N - 1
 _PERM = [2, 1, 0, 3]  # ARGB (BGRA in LE) -> RGBA
 
 
+def palette_256() -> list[int]:
+    palette = []
+    for i in range(256):
+        h = (i * 0.61803398875) % 1.0  # golden ratio hue step
+        s = 0.55 + 0.45 * ((i * 0.7548776662) % 1.0)  # vary saturation
+        v = 0.55 + 0.45 * ((i * 0.5698402910) % 1.0)  # vary brightness
+        r, g, b = colorsys.hsv_to_rgb(h, s, v)
+        palette.append(int.from_bytes((
+            int(r * 255),
+            int(g * 255),
+            int(b * 255),
+        )))
+    palette[0] = 0
+    return palette
+
+
+PALETTE256 = palette_256()
+
+
 def to_rgba(data: bytes) -> bytes:
     pix = np.frombuffer(data, dtype=np.uint8).reshape(-1, 4)
     return pix[:, _PERM].tobytes()
+
+
+def to_rgb(data: bytes) -> bytes:
+    return data
 
 
 def rle(bpp: int, size: int, data: bytes) -> bytes:
@@ -45,6 +72,44 @@ def rle(bpp: int, size: int, data: bytes) -> bytes:
         di += i
 
     return b"".join(chunks)
+
+
+def rle_online(bpp: int, size: int, br: BinaryReader) -> tuple[bytes, int]:
+    if bpp == 1:
+        read = br.u8
+    elif bpp == 2:
+        read = br.u16
+    elif bpp == 4:
+        read = br.u32
+    else:
+        raise ValueError(f"Illegal BPP: {bpp}")
+
+    chunks = []
+    si = 0
+    di = 0
+    while di < size:
+        cx = br.i8()
+        si += 1
+        if cx == -128:
+            cx = 0
+
+        if cx < 0:  # run
+            i = 1 - cx
+            ch = read().to_bytes(bpp, byteorder="little")
+            si += bpp
+            di += i * bpp
+            if di > size:
+                raise ValueError("RLE buffer overflow")
+            chunks.append(ch * i)
+        else:  # sequence
+            i = cx + 1
+            si += i * bpp
+            di += i * bpp
+            if di > size:
+                raise ValueError("RLE buffer overflow")
+            chunks.append(br.read(i * bpp))
+
+    return b"".join(chunks), si
 
 
 # port of lzwexpand (actually LZSS) in Common/util/lzw.cpp with optimizations.
@@ -156,14 +221,24 @@ def argb8888(b: bytes) -> int:
     return int.from_bytes(to_rgba(b), "little")
 
 
-def indexed(palette: list[int]) -> np.ndarray:
+def _indexed_rgba(palette: list[int]) -> np.ndarray:
     return np.frombuffer(
         b"".join(v.to_bytes(4, "little") for v in palette), dtype=np.uint8
     ).reshape(len(palette), 4)
 
 
+def _indexed_rgb(palette: list[int]) -> np.ndarray:
+    return np.frombuffer(
+        b"".join(v.to_bytes(3, "big") for v in palette), dtype=np.uint8
+    ).reshape(len(palette), 3)
+
+
 def indexed_to_rgba(data: bytes, palette: list[int]) -> bytes:
-    return indexed(palette)[np.frombuffer(data, dtype=np.uint8)].tobytes()
+    return _indexed_rgba(palette)[np.frombuffer(data, dtype=np.uint8)].tobytes()
+
+
+def indexed_to_rgb(data: bytes, palette: list[int]) -> bytes:
+    return _indexed_rgb(palette)[np.frombuffer(data, dtype=np.uint8)].tobytes()
 
 
 def sequential(data: bytes) -> bytes:
