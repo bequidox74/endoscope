@@ -1,7 +1,6 @@
 import itertools
 import logging
 import os
-import random
 import time
 from argparse import ArgumentParser, Namespace
 from collections.abc import Iterable
@@ -183,7 +182,6 @@ class BitmapExtractor:
         h = br.u16()
         try:
             decomp, read = decode.rle_online(1, w * h, br)
-            # palette = [int.from_bytes(br.read(3)) for _ in range(256)]
             palette = decode.PALETTE256
             br.skip(3 * 256)
             if read != 0:
