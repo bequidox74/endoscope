@@ -40,8 +40,8 @@ class _BitmapsCommand(Command):
             "-t",
             "--threads",
             type=int,
-            help="number of threads to use (default: 10)",
-            default=10,
+            help="number of threads to use (default: 3)",
+            default=3,
         )
         parser.add_argument(
             "-d",
