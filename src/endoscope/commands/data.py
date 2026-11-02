@@ -1,6 +1,7 @@
 import json
 import logging
 from argparse import ArgumentParser, Namespace, _SubParsersAction
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,7 @@ from endoscope.data.gamefile import AudioClip, GameData
 logger = logging.root
 
 
-_sections: dict = {}
+sections: dict[str, Callable] = {}
 
 
 def _dumps(obj: Any) -> str:
@@ -26,27 +27,27 @@ def init_parser(subp: _SubParsersAction) -> None:
     parser.add_argument(
         "what",
         nargs="*",
-        help=f"what sections to export ({_get_available_sections()})",
+        help=f"what sections to export ({get_available_sections()})",
     )
 
     parser.set_defaults(func=_main)
 
 
 def _main(args: Namespace) -> None:
-    gamedata_to_json(args.input, args.what)
+    print(gamedata_to_json(args.input, args.what))
 
 
-def gamedata_to_json(pin: Path, what: list[str]) -> None:
+def gamedata_to_json(pin: Path, what: list[str]) -> str:
     check_datafile(pin)
     gd = utils.read_gamedata(pin)
     if not what:
-        what = list(_sections.keys())
+        what = list(sections.keys())
 
     result = {}
     for w in what:
-        result[w] = _sections[w](gd)
+        result[w] = sections[w](gd)
 
-    print(_dumps(result))
+    return _dumps(result)
 
 
 def export_chars(gd: GameData) -> list[dict]:
@@ -135,12 +136,12 @@ def export_dialogue(gd: GameData) -> list:
     return out
 
 
-_sections["chars"] = export_chars
-_sections["audio"] = export_audio
-_sections["labels"] = export_gui_labels
-_sections["items"] = export_items
-_sections["dialogue"] = export_dialogue
+sections["chars"] = export_chars
+sections["audio"] = export_audio
+sections["labels"] = export_gui_labels
+sections["items"] = export_items
+sections["dialogue"] = export_dialogue
 
 
-def _get_available_sections() -> str:
-    return ",".join(_sections.keys())
+def get_available_sections() -> str:
+    return ",".join(sections.keys())

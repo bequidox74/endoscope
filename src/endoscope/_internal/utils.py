@@ -45,7 +45,7 @@ def detect_file_type(path: Path) -> Literal["clib", "exe"]:
 
 
 def parse_ranges(s: str | None) -> list[range]:
-    if s is None:
+    if s is None or not s:
         return []
 
     result: list[range] = []

@@ -185,7 +185,7 @@ class _ExportCommand(Command):
         )
 
     def execute(self, args: Namespace) -> None:
-        ViewsExporter(
+        ViewsExporter().extract(
             pin=args.input,
             pout=args.output,
             sprdir=args.sprite_dir,
@@ -256,7 +256,10 @@ def views_to_json(gd: GameData) -> list:
 
 
 class ViewsExporter:
-    def __init__(
+    def __init__(self) -> None:
+        self.stop = False
+
+    def extract(
         self,
         pin: Path,
         pout: Path,
@@ -267,7 +270,7 @@ class ViewsExporter:
         ext: str | None,
         move: bool,
         threads: int,
-    ) -> None:
+    ) -> tuple[int, float]:
         self.pin = pin
         self.pout = pout
         self.sprdir = sprdir
@@ -277,6 +280,9 @@ class ViewsExporter:
         self.ext = ext
         self.move = move
         self.threads = threads
+
+        self.stop = False
+        self._count = 0
 
         check_datafile(self.pin)
         check_indir(self.sprdir)
@@ -309,10 +315,19 @@ class ViewsExporter:
                 logger.debug("Started worker thread %d", i)
                 executor.submit(self._export_views, r[0], r[1])
         end = time.time()
-        logger.info("Done in %.2f seconds", end - start)
+
+        elapsed = end - start
+        logger.info(
+            "Done processing %d views in %.2f seconds",
+            self._count,
+            elapsed,
+        )
+        return self._count, elapsed
 
     def _export_views(self, start: int, end: int) -> None:
         for i in range(start, end):
+            if self.stop:
+                break
             idx = self.indices[i]
             self._export_view(idx)
 
@@ -334,6 +349,7 @@ class ViewsExporter:
         self.index = index
 
     def _export_view(self, i: int) -> None:
+        self._count += 1
         name = self.gd.view_names[i]
         logger.info('Exporting view %d "%s"', i, name)
         view_dir = self.pout / f"{i + 1}_{name}"
@@ -341,6 +357,8 @@ class ViewsExporter:
 
         os.makedirs(view_dir, exist_ok=True)
         for li, loop in enumerate(view.loops):
+            if self.stop:
+                break
             if self.dirs:
                 loop_dir = view_dir / str(li)
             else:

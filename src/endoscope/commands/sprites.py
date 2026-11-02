@@ -6,6 +6,7 @@ import time
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from pathlib import Path
+from typing import ClassVar
 
 from PIL import Image
 
@@ -49,8 +50,8 @@ class SpritesCommand(Command):
             "-t",
             "--threads",
             type=int,
-            help="number of threads to use for sprite extraction (10 is usually enough)",
-            default=10,
+            help="number of threads to use for sprite extraction",
+            default=SpriteExtractor.DEFAULT_THREADS,
         )
 
         filters_group = parser.add_mutually_exclusive_group()
@@ -74,10 +75,12 @@ class SpritesCommand(Command):
             dry_run=args.dry_run,
             extension=args.extension,
             threads=args.threads,
-        )
+        ).extract()
 
 
 class SpriteExtractor:
+    DEFAULT_THREADS: ClassVar = 10
+
     def __init__(
         self,
         pin: Path,
@@ -94,6 +97,15 @@ class SpriteExtractor:
         self.exclude = exclude
         self.dry_run = dry_run
         self.extension = extension
+        self.threads = threads
+        self.stop = False
+
+    def extract(self) -> tuple[int, float]:
+        pin = self.pin
+        pout = self.pout
+        include = self.include
+        exclude = self.exclude
+        threads = self.threads
 
         check_datafile(pin)
         pclib = Clib.read_file(pin)
@@ -137,21 +149,24 @@ class SpriteExtractor:
         ranges = split_range(0, len(self.indices), threads)
 
         start = time.time()
+        self._n = 0
         with concurrent.futures.ThreadPoolExecutor(threads) as executor:
             for i, r in enumerate(ranges):
                 executor.submit(self._process_files, r[0], r[1], i)
         end = time.time()
-        logger.info(
-            "Done. Exported %d sprites in %.2f seconds",
-            len(self.indices),
-            end - start,
-        )
+
+        elapsed = end - start
+        logger.info("Done. Exported %d sprites in %.2f seconds", self._n, elapsed)
+        return self._n, elapsed
 
     def _process_files(self, start: int, end: int, id_: int):
         logger.debug("Started worker thread %d", id_)
         with open(self.pin, "rb") as sin:
             br = BinaryReader(sin)
             for i in range(start, end):
+                if self.stop:
+                    break
+
                 idx = self.indices[i]
                 if idx >= self.num_sprites:
                     break  # can't trust that the user will put in adequate numbers.
@@ -178,6 +193,7 @@ class SpriteExtractor:
                     continue
 
                 self._save_bitmap(bitmap, sprite.width, sprite.height, file_path)
+                self._n += 1
                 logger.info("Extracted %s", file_path)
 
     def _save_bitmap(self, bitmap: bytes, w: int, h: int, p: Path) -> None:

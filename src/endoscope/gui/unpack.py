@@ -6,6 +6,7 @@ from tkinter import messagebox as mbox
 
 from endoscope._internal.utils import check_infile, is_program_files
 from endoscope.commands import unpack
+from endoscope.gui._utils import error
 from endoscope.gui.command_gui import CommandGui
 
 
@@ -47,14 +48,14 @@ class UnpackWrapper:
         output: str = gui["output"]
 
         if not input_:
-            _error("No input file provided.")
+            error("No input file provided.")
             return
         pin: Path = Path(input_)
         if not _try(check_infile, pin):
             return
 
         if not output:
-            _error("No output directory provided.")
+            error("No output directory provided.")
             return
         pout: Path = Path(output)
         if is_program_files(pout):
@@ -96,7 +97,7 @@ class UnpackWrapper:
         try:
             count, elapsed = future.result()
         except ValueError as exc:
-            _error(exc.args[0])
+            error(exc.args[0])
             self._future = None
             self._gui.set_label("status", UnpackWrapper._STATUS_IDLE)
             return
@@ -112,14 +113,6 @@ def _try[**P, R](func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> boo
     try:
         func(*args, **kwargs)
     except Exception as exc:  # noqa: BLE001
-        _error(exc.args[0])
+        error(exc.args[0])
         return False
     return True
-
-
-def _error(msg: str) -> None:
-    mbox.showerror("Error", msg)
-
-
-def _warn(msg: str) -> None:
-    mbox.showwarning("Warning", msg)

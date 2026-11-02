@@ -48,7 +48,7 @@ class _HintEntry(ttk.Entry):
 class CommandGui:
     def __init__(self, master, title="Command", padding=12) -> None:
         self.master = master
-        self.root = tk.Toplevel()
+        self.root = tk.Toplevel(master)
 
         self.root.withdraw()
         self.root.title(title)
@@ -74,17 +74,11 @@ class CommandGui:
         self._button_row = None
         self._labels: dict[str, ttk.Label] = {}
 
-    def make_modal(self) -> None:
-        self.root.lift()
-        self.root.transient(self.master)
-        self.root.grab_set()
-        self.root.focus_force()
-        self.master.wait_window(self.root)
-
     def center(self) -> None:
         self.master.update_idletasks()
-        width = self.root.winfo_width()
-        height = self.root.winfo_height()
+        self.root.update_idletasks()
+        width = self.root.winfo_reqwidth()
+        height = self.root.winfo_reqheight()
 
         x = self.master.winfo_rootx() + (self.master.winfo_width() - width) // 2
         y = self.master.winfo_rooty() + (self.master.winfo_height() - height) // 2
@@ -99,6 +93,9 @@ class CommandGui:
         top_align: bool = False,
     ) -> None:
         self._button_row = None
+        key = vid or label
+        if key in self._getters:
+            raise ValueError(f"Duplicate id: {key!r}")
         ttk.Label(self._frame, text=label).grid(
             row=self._row,
             column=0,
@@ -108,7 +105,7 @@ class CommandGui:
         )
         ctrl = ttk.Frame(self._frame)
         ctrl.grid(row=self._row, column=1, sticky="ew", pady=3)
-        self._getters[vid or label] = getter_factory(ctrl)
+        self._getters[key] = getter_factory(ctrl)
         self._row += 1
 
     def label(self, text: str, lid: str | None = None) -> None:
@@ -126,7 +123,7 @@ class CommandGui:
         types = _parse_filters(filters)
 
         def build(parent) -> Callable[[], str | None]:
-            var = tk.StringVar()
+            var = parent.var = tk.StringVar(master=parent)
             ttk.Entry(parent, textvariable=var, width=40).pack(
                 side="left", fill="x", expand=True
             )
@@ -149,7 +146,7 @@ class CommandGui:
         types = _parse_filters(filters)
 
         def build(parent) -> Callable[[], str | None]:
-            var = tk.StringVar()
+            var = parent.var = tk.StringVar(master=parent)
             ttk.Entry(parent, textvariable=var, width=40).pack(
                 side="left", fill="x", expand=True
             )
@@ -168,7 +165,7 @@ class CommandGui:
 
     def directory(self, label: str, vid: str | None = None) -> None:
         def build(parent) -> Callable[[], str | None]:
-            var = tk.StringVar()
+            var = parent.var = tk.StringVar(master=parent)
             ttk.Entry(parent, textvariable=var, width=40).pack(
                 side="left", fill="x", expand=True
             )
@@ -189,7 +186,7 @@ class CommandGui:
         self, label: str, vid: str | None = None, default: bool = False
     ) -> None:
         def build(parent) -> Callable[[], bool]:
-            var = tk.BooleanVar(value=default)
+            var = parent.var = tk.BooleanVar(master=parent, value=default)
             ttk.Checkbutton(
                 parent,
                 variable=var,
@@ -210,7 +207,9 @@ class CommandGui:
 
     def radio(self, label: str, choices: Choices, vid: str | None = None) -> None:
         def build(parent) -> Callable[[], str]:
-            var = tk.StringVar(value=next(iter(choices.values())))
+            var = parent.var = tk.StringVar(
+                master=parent, value=next(iter(choices.values()))
+            )
             for text, value in choices.items():
                 ttk.Radiobutton(parent, text=text, value=value, variable=var).pack(
                     anchor="w"
@@ -219,13 +218,57 @@ class CommandGui:
 
         self._add_row(label, vid, build, top_align=True)
 
-    def checkboxes(self, label: str, choices: Choices, vid: str | None = None) -> None:
+    def checkboxes(
+        self,
+        label: str,
+        choices: Choices,
+        default: bool = False,
+        vid: str | None = None,
+        columns: int = 4,
+    ) -> None:
+        if columns < 1:
+            raise ValueError("columns must be at least 1")
+
         def build(parent) -> Callable[[], list]:
-            vars_ = []
-            for text, value in choices.items():
-                var = tk.BooleanVar()
-                ttk.Checkbutton(parent, text=text, variable=var).pack(anchor="w")
+            vars_: list[tuple[str, tk.BooleanVar]] = []
+            parent.vars = vars_
+
+            for index, (text, value) in enumerate(choices.items()):
+                var = tk.BooleanVar(master=parent, value=default)
+                ttk.Checkbutton(
+                    parent,
+                    text=text,
+                    variable=var,
+                ).grid(
+                    row=index // columns,
+                    column=index % columns,
+                    sticky="w",
+                    padx=2,
+                    pady=2,
+                )
                 vars_.append((value, var))
+
+            button_row = (len(choices) + columns - 1) // columns
+            button_frame = ttk.Frame(parent)
+            button_frame.grid(
+                row=button_row,
+                column=0,
+                columnspan=columns,
+                sticky="w",
+                pady=(4, 0),
+            )
+
+            def set_all(value: bool) -> None:
+                for _, v in vars_:
+                    v.set(value)
+
+            ttk.Button(
+                button_frame, text="[x]", width=3, command=lambda: set_all(True)
+            ).pack(side="left", padx=(0, 4))
+            ttk.Button(
+                button_frame, text="[ ]", width=3, command=lambda: set_all(False)
+            ).pack(side="left")
+
             return lambda: [value for value, var in vars_ if var.get()]
 
         self._add_row(label, vid, build, top_align=True)
@@ -270,6 +313,9 @@ class CommandGui:
             side="left", padx=(0, 6)
         )
 
+    def break_row(self) -> None:
+        self._button_row = None
+
     def set_label(self, lid: str, text: str) -> None:
         self._labels[lid].configure(text=text)
 
@@ -277,9 +323,9 @@ class CommandGui:
         return self._getters[vid]()
 
     def run(self) -> None:
-        self.root.transient(self.master)
         self.root.lift()
         self.root.grab_set()
         self.root.focus_force()
         self.center()
+        self.root.update_idletasks()
         self.root.deiconify()

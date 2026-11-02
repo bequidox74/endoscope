@@ -2,8 +2,12 @@ import logging
 import sys
 import tkinter as tk
 
+from endoscope.gui.data import DataWrapper
 from endoscope.gui.main_menu import MainMenu
+from endoscope.gui.rooms import RoomsBitmapsWrapper
+from endoscope.gui.sprites import SpritesWrapper
 from endoscope.gui.unpack import UnpackWrapper
+from endoscope.gui.views import ViewsExportWrapper
 
 logger = logging.root
 
@@ -40,28 +44,32 @@ class Gui:
         menu.add_button("Unpack assets", self._unpack)
         menu.end_row()
 
-        menu.add_button("Extract sprites", lambda: None)
+        menu.add_button("Extract sprites", self._sprites)
         menu.end_row()
 
-        menu.add_button("Game data -> JSON", lambda: None)
+        menu.add_button("Game data -> JSON", self._data)
         menu.end_row()
 
-        menu.add_button("Rename audio files", lambda: None)
+        menu.add_button("Room backgrounds", self._room_bitmaps)
         menu.end_row()
 
-        menu.add_label("Rooms")
-        menu.add_button("Bitmaps", lambda: None)
-        menu.add_button("JSON", lambda: None)
-        menu.end_row()
-
-        menu.add_label("Views")
-        menu.add_button("Export", lambda: None)
-        menu.add_button("JSON", lambda: None)
-        menu.add_button("Lookup", lambda: None)
+        menu.add_button("Export views", self._views_export)
         menu.end_row()
 
     def _unpack(self) -> None:
-        UnpackWrapper(self._tk)
+        UnpackWrapper(self._frame)
+
+    def _data(self) -> None:
+        DataWrapper(self._frame)
+
+    def _sprites(self) -> None:
+        SpritesWrapper(self._frame)
+
+    def _room_bitmaps(self) -> None:
+        RoomsBitmapsWrapper(self._frame)
+
+    def _views_export(self) -> None:
+        ViewsExportWrapper(self._frame)
 
     def _center(self) -> None:
         self._tk.update_idletasks()

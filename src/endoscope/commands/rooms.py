@@ -66,7 +66,7 @@ class _BitmapsCommand(Command):
         )
 
     def execute(self, args: Namespace) -> None:
-        BitmapExtractor(
+        BitmapExtractor().extract(
             args.roomdir,
             args.output,
             args.threads,
@@ -188,7 +188,10 @@ class JsonExporter:
 
 
 class BitmapExtractor:
-    def __init__(
+    def __init__(self) -> None:
+        self.stop = False
+
+    def extract(
         self,
         roomdir: Path,
         pout: Path,
@@ -196,13 +199,16 @@ class BitmapExtractor:
         dry_run: bool,
         glob: str,
         extension: str,
-    ) -> None:
+    ) -> tuple[int, float]:
         self.roomdir = roomdir
         self.pout = pout
         self.nthreads = nthreads
         self.dry_run = dry_run
         self.glob = glob
         self.extension = extension
+
+        self.stop = False
+        self._count = 0
 
         check_indir(roomdir)
         os.makedirs(pout, exist_ok=True)
@@ -216,7 +222,6 @@ class BitmapExtractor:
         if not room_files:
             logger.info("No files to process, exiting")
 
-        self.openfiles: set[Path] = set()
         start = time.time()
         with ThreadPoolExecutor(nthreads) as executor:
             bsize = len(room_files) // nthreads
@@ -225,17 +230,21 @@ class BitmapExtractor:
             for batch in itertools.batched(room_files, bsize):
                 executor.submit(self._process_batch, batch)
         end = time.time()
+
+        elapsed = end - start
         logger.info(
             "Done processing %d rooms in %.2f seconds",
-            len(room_files),
-            end - start,
+            self._count,
+            elapsed,
         )
+        return self._count, elapsed
 
     def _process_batch(self, batch: Iterable[Path]) -> None:
         for p in batch:
+            if self.stop:
+                break
+            self._count += 1
             logger.debug("Processing room %s", p.name)
-            if p in self.openfiles:
-                raise RuntimeError
             with open(p, "rb") as sin:
                 try:
                     br = BinaryReader(sin)

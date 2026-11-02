@@ -9,6 +9,8 @@ from endoscope._internal import utils
 from endoscope._internal.utils import check, check_indir, check_infile
 from endoscope.commands.command import Command, command
 from endoscope.data.clib import Clib
+from endoscope.data.gamefile import GameData
+from endoscope.data.utils import read_gamedata
 
 logger = logging.root
 
@@ -86,6 +88,14 @@ class AssetUnpacker:
         self.chunk_size = chunk_size
         self.dry_run = dry_run
 
+        self._audio_index: dict[str, str] = {}
+
+    def _build_audio_index(self, gd: GameData) -> None:
+        index = {}
+        for clip in gd.audio_clips:
+            index[clip.file_name] = clip.script_name
+        self._audio_index = index
+
     def unpack(
         self,
     ) -> tuple[int, float]:
@@ -101,6 +111,9 @@ class AssetUnpacker:
         check_indir(pout)
         check(chunk_size > 0, "chunk size cannot be zero")
 
+        gd = read_gamedata(pin)
+        self._build_audio_index(gd)
+
         clib, off_clib = Clib.read_file(pin)
         logger.info("CLIB v%d listing %d files", clib.version, len(clib.files))
         count = 0
@@ -112,15 +125,18 @@ class AssetUnpacker:
             if not _filter(f.name, include, exclude):
                 continue
 
+            pout_full = pout / f.name
+            if f.name in self._audio_index:
+                pout_full = pout_full.with_stem(self._audio_index[f.name])
+
             if not dry_run:
-                pout_full = pout / f.name
                 os.makedirs(pout_full.parent, exist_ok=True)
-                with open(pin, "rb") as sin, open(pout / f.name, "wb") as sout:
+                with open(pin, "rb") as sin, open(pout_full, "wb") as sout:
                     offset = off_clib + f.offset
                     cc.copy(sin, sout, offset, f.size, chunk_size)
 
             count += 1
-            logger.info("Extracted '%s' (%d bytes)", f.name, f.size)
+            logger.info("Extracted '%s' (%d bytes)", pout_full.name, f.size)
         end = time.time()
         logger.info("Done extracting %d assets in %.2f seconds", count, end - start)
         return count, end - start
