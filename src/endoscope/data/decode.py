@@ -75,39 +75,34 @@ def rle(bpp: int, size: int, data: bytes) -> bytes:
 
 
 def rle_online(bpp: int, size: int, br: BinaryReader) -> tuple[bytes, int]:
-    if bpp == 1:
-        read = br.u8
-    elif bpp == 2:
-        read = br.u16
-    elif bpp == 4:
-        read = br.u32
-    else:
+    if bpp not in (1, 2, 4):
         raise ValueError(f"Illegal BPP: {bpp}")
 
+    read = br.read
     chunks = []
+    append = chunks.append
     si = 0
     di = 0
-    while di < size:
-        cx = br.i8()
-        si += 1
-        if cx == -128:
-            cx = 0
 
-        if cx < 0:  # run
-            i = 1 - cx
-            ch = read().to_bytes(bpp, byteorder="little")
+    while di < size:
+        cx = read(1)[0]
+        si += 1
+
+        if cx > 128:  # run
+            n = 257 - cx
+            di += n * bpp
+            if di > size:
+                raise ValueError("RLE buffer overflow")
             si += bpp
-            di += i * bpp
-            if di > size:
-                raise ValueError("RLE buffer overflow")
-            chunks.append(ch * i)
+            append(read(bpp) * n)
         else:  # sequence
-            i = cx + 1
-            si += i * bpp
-            di += i * bpp
+            n = 1 if cx == 128 else cx + 1
+            nbytes = n * bpp
+            di += nbytes
             if di > size:
                 raise ValueError("RLE buffer overflow")
-            chunks.append(br.read(i * bpp))
+            si += nbytes
+            append(read(nbytes))
 
     return b"".join(chunks), si
 
