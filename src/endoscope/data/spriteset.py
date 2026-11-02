@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum, IntEnum, IntFlag
 from typing import ClassVar, NamedTuple
 
-from endoscope._internal.binary_reader import BinaryReader
+from endoscope._internal.reader import BinaryReader
 from endoscope._internal.utils import check
 from endoscope.data import decode
 

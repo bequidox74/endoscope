@@ -11,7 +11,7 @@ from pathlib import Path
 
 from tabulate import tabulate
 
-from endoscope._internal.binary_reader import BinaryReader
+from endoscope._internal.reader import BinaryReader
 from endoscope._internal.utils import (
     check_datafile,
     check_dir,

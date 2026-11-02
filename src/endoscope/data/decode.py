@@ -2,7 +2,7 @@ import colorsys
 
 import numpy as np
 
-from endoscope._internal.binary_reader import BinaryReader
+from endoscope._internal.reader import BinaryReader
 
 N = 4096
 F = 16

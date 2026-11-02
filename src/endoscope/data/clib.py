@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, NamedTuple
 
-from endoscope._internal.binary_reader import BinaryReader
+from endoscope._internal.reader import BinaryReader
 from endoscope._internal.utils import check, detect_file_type
 
 

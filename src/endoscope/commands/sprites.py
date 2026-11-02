@@ -9,7 +9,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from endoscope._internal.binary_reader import BinaryReader
+from endoscope._internal.reader import BinaryReader
 from endoscope._internal.utils import (
     check,
     check_datafile,
