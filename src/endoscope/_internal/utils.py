@@ -11,23 +11,30 @@ logger = logging.getLogger(__name__)
 
 def check(cond: bool, message: str, *args) -> None:
     if not cond:
-        raise AssertionError(message % args)
+        raise ValueError(message % args)
 
 
-def chunked_copy(
-    src: BinaryIO,
-    dst: BinaryIO,
-    offset: int,
-    size: int,
-    chunk_size: int = 64 * 1024,
-) -> None:
-    src.seek(offset)
-    copied: int = 0
-    while copied < size:
-        left = size - copied
-        chunk = src.read(min(chunk_size, left))
-        dst.write(chunk)
-        copied += len(chunk)
+class ChunkedCopy:
+    def __init__(self) -> None:
+        self.stop = False
+
+    def copy(
+        self,
+        src: BinaryIO,
+        dst: BinaryIO,
+        offset: int,
+        size: int,
+        chunk_size: int = 64 * 1024,
+    ) -> None:
+        src.seek(offset)
+        copied: int = 0
+        while copied < size:
+            if self.stop:
+                return
+            left = size - copied
+            chunk = src.read(min(chunk_size, left))
+            dst.write(chunk)
+            copied += len(chunk)
 
 
 def detect_file_type(path: Path) -> Literal["clib", "exe"]:
@@ -106,15 +113,18 @@ def split_range(start: int, end: int, n: int) -> list[tuple[int, int]]:
     return chunks
 
 
-def check_dir(p: Path) -> None:
+def check_indir(p: Path) -> None:
     check(p.exists(), "directory %s does not exist", p)
     check(p.is_dir(), "%s is not a directory", p)
-    if "Program Files" in str(p):
-        logger.warning(
-            "Warning: you seem to be writing to Program Files, "
-            "which is probably NOT what you want. If this IS what "
-            "you want, make sure you are running as admin!"
-        )
+
+
+def check_infile(p: Path) -> None:
+    check(p.exists(), "file %s does not exist", p)
+    check(not p.is_dir(), "%s is not a file", p)
+
+
+def is_program_files(p: Path) -> bool:
+    return "Program Files" in str(p)
 
 
 def dump_json(obj: dict, minify: bool) -> str:
@@ -124,5 +134,11 @@ def dump_json(obj: dict, minify: bool) -> str:
 
 
 def check_datafile(p: Path) -> None:
-    check(p.is_file(), "%s is not a file", p)
-    check(p.suffix.casefold() in SUFFIXES, "%s is not a supported data file", p)
+    check(
+        is_datafile(p),
+        f"{p} is not a data file. Only {', '.join(SUFFIXES)} are supported.",
+    )
+
+
+def is_datafile(p: Path) -> bool:
+    return p.suffix.casefold() in SUFFIXES

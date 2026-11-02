@@ -3,7 +3,7 @@ import shutil
 from argparse import ArgumentParser, Namespace, _SubParsersAction
 from pathlib import Path
 
-from endoscope._internal.utils import check_datafile, check_dir
+from endoscope._internal.utils import check_datafile, check_indir
 from endoscope.data import utils
 from endoscope.data.gamefile import GameData
 
@@ -47,7 +47,7 @@ class AudioFileRenamer:
         dry_run: bool,
     ) -> None:
         check_datafile(pin)
-        check_dir(paud)
+        check_indir(paud)
 
         gd = utils.read_gamedata(pin)
         file_index = self._build_index(gd)

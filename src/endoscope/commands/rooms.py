@@ -13,7 +13,7 @@ from typing import ClassVar
 from PIL import Image
 
 from endoscope._internal.reader import BinaryReader
-from endoscope._internal.utils import check, check_dir, dump_json
+from endoscope._internal.utils import check, check_indir, dump_json
 from endoscope.commands.command import Command, command
 from endoscope.data import decode
 from endoscope.data.room import Room
@@ -204,7 +204,7 @@ class BitmapExtractor:
         self.glob = glob
         self.extension = extension
 
-        check_dir(roomdir)
+        check_indir(roomdir)
         os.makedirs(pout, exist_ok=True)
 
         room_files: list[Path] = []

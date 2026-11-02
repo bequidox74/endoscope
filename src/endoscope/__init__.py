@@ -3,9 +3,10 @@ import sys
 from argparse import ArgumentParser
 
 from endoscope import gui
-from endoscope.commands import audio, data, unpack
+from endoscope.commands import audio, data
 from endoscope.commands.rooms import RoomsCommand
 from endoscope.commands.sprites import SpritesCommand
+from endoscope.commands.unpack import UnpackCommand
 from endoscope.commands.views import ViewsCommand
 
 
@@ -13,6 +14,10 @@ def main() -> None:
     if len(sys.argv) > 1:
         cli_main()
     else:
+        logging.basicConfig(
+            format="%(message)s",
+            level=logging.DEBUG,
+        )
         gui.gui_main()
 
 
@@ -45,7 +50,7 @@ def cli_main() -> None:
     )
 
     subp = parser.add_subparsers(title="commands", required=True)
-    unpack.init_parser(subp)
+    UnpackCommand().init_parser(subp)
     ViewsCommand().init_parser(subp)
     data.init_parser(subp)
     audio.init_parser(subp)

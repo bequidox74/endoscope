@@ -1,6 +1,5 @@
 import tkinter as tk
 from collections.abc import Callable
-from pathlib import Path
 from tkinter import filedialog, ttk
 from typing import Any
 
@@ -126,7 +125,7 @@ class CommandGui:
     ) -> None:
         types = _parse_filters(filters)
 
-        def build(parent) -> Callable[[], Path | None]:
+        def build(parent) -> Callable[[], str | None]:
             var = tk.StringVar()
             ttk.Entry(parent, textvariable=var, width=40).pack(
                 side="left", fill="x", expand=True
@@ -140,7 +139,7 @@ class CommandGui:
             ttk.Button(parent, text="Browse...", command=browse).pack(
                 side="left", padx=(4, 0)
             )
-            return lambda: Path(var.get()) if var.get() else None
+            return var.get
 
         self._add_row(label, vid, build)
 
@@ -149,7 +148,7 @@ class CommandGui:
     ) -> None:
         types = _parse_filters(filters)
 
-        def build(parent) -> Callable[[], Path | None]:
+        def build(parent) -> Callable[[], str | None]:
             var = tk.StringVar()
             ttk.Entry(parent, textvariable=var, width=40).pack(
                 side="left", fill="x", expand=True
@@ -163,12 +162,12 @@ class CommandGui:
             ttk.Button(parent, text="Browse...", command=browse).pack(
                 side="left", padx=(4, 0)
             )
-            return lambda: Path(var.get()) if var.get() else None
+            return var.get
 
         self._add_row(label, vid, build)
 
     def directory(self, label: str, vid: str | None = None) -> None:
-        def build(parent) -> Callable[[], Path | None]:
+        def build(parent) -> Callable[[], str | None]:
             var = tk.StringVar()
             ttk.Entry(parent, textvariable=var, width=40).pack(
                 side="left", fill="x", expand=True
@@ -182,7 +181,7 @@ class CommandGui:
             ttk.Button(parent, text="Browse...", command=browse).pack(
                 side="left", padx=(4, 0)
             )
-            return lambda: Path(var.get()) if var.get() else None
+            return var.get
 
         self._add_row(label, vid, build)
 
@@ -234,7 +233,7 @@ class CommandGui:
     def textinput(self, label: str, vid: str | None = None, hint: str = "") -> None:
         def build(parent) -> Callable[[], str]:
             entry = _HintEntry(parent, hint=hint, width=40)
-            entry.pack(anchor="w")
+            entry.pack(anchor="w", fill="x", expand=True)
             return entry.get
 
         self._add_row(label, vid, build)
@@ -250,13 +249,13 @@ class CommandGui:
         lo = low if low is not None else -(2**31)
         hi = high if high is not None else 2**31 - 1
 
-        def build(parent) -> Callable[[], int]:
+        def build(parent) -> Callable[[], str]:
             spin = ttk.Spinbox(parent, from_=lo, to=hi, width=10)
             spin.set(
                 default if default is not None else (low if low is not None else 0)
             )
             spin.pack(anchor="w")
-            return lambda: int(spin.get())
+            return spin.get
 
         self._add_row(label, vid, build)
 

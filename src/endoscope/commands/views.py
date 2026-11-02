@@ -14,7 +14,7 @@ from tabulate import tabulate
 from endoscope._internal.reader import BinaryReader
 from endoscope._internal.utils import (
     check_datafile,
-    check_dir,
+    check_indir,
     filter_ranges,
     parse_ranges,
     split_range,
@@ -279,7 +279,7 @@ class ViewsExporter:
         self.threads = threads
 
         check_datafile(self.pin)
-        check_dir(self.sprdir)
+        check_indir(self.sprdir)
 
         if self.ext is not None:
             self.ext = self.ext.removesuffix(".").casefold()

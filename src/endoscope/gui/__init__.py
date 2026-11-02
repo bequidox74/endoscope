@@ -1,7 +1,11 @@
+import logging
+import sys
 import tkinter as tk
 
 from endoscope.gui.main_menu import MainMenu
-from endoscope.gui.wrappers import UnpackWrapper
+from endoscope.gui.unpack import UnpackWrapper
+
+logger = logging.root
 
 
 def gui_main() -> None:
@@ -23,6 +27,10 @@ class Gui:
         self._center()
         self._tk.deiconify()
         self._tk.mainloop()
+
+        # prevent threads from lingering after the window is closed
+        logger.info("Main loop finished, exiting")
+        sys.exit(0)
 
     def _make_menu(self) -> None:
         menu = MainMenu(self._frame)
