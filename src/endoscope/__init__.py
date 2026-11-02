@@ -1,6 +1,8 @@
 import logging
+import sys
 from argparse import ArgumentParser
 
+from endoscope import gui
 from endoscope.commands import audio, data, unpack
 from endoscope.commands.rooms import RoomsCommand
 from endoscope.commands.sprites import SpritesCommand
@@ -8,6 +10,13 @@ from endoscope.commands.views import ViewsCommand
 
 
 def main() -> None:
+    if len(sys.argv) > 1:
+        cli_main()
+    else:
+        gui.gui_main()
+
+
+def cli_main() -> None:
     parser = ArgumentParser(
         prog="endoscope",
         description="Datamining tool for Endacopia (and maybe other AGS 3.6.0 games)",
