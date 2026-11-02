@@ -87,11 +87,11 @@ class Sprite:
         br: BinaryReader,
     ) -> Sprite | None:
         start = br.tell()
-        bytes_per_pixel = br.u8()
+        bpp = br.u8()
         storage_fmt = Sprite.Palette(br.u8())  # pylint: disable=all
-        if bytes_per_pixel == 0:
+        if bpp == 0:
             return None  # skip empty slots
-        assert bytes_per_pixel in (1, 2, 4), "BPP must be 1/2/4"
+        assert bpp in (1, 2, 4), "BPP must be 1/2/4"
 
         num_palette = 0
         compression = def_compr
@@ -103,10 +103,8 @@ class Sprite:
 
         palette: list[int] = [0] * num_palette
         if storage_fmt is not Sprite.Palette.UNDEFINED:
-            spec = SPECS[storage_fmt]
-            decoder = DECODERS[SPECS[storage_fmt].bpp]
             for i in range(num_palette):
-                palette[i] = decoder(br.read(spec.bpp))
+                palette[i] = int.from_bytes(br.read(bpp), byteorder="little")
 
         if (
             version >= Sprite.Version.STORAGEFORMATS
@@ -114,12 +112,12 @@ class Sprite:
         ):
             len_data = br.u32()
         else:
-            len_data = width * height * bytes_per_pixel
+            len_data = width * height * bpp
         off_data = br.tell() - start
         br.skip(len_data)
 
         return Sprite(
-            bpp=bytes_per_pixel,
+            bpp=bpp,
             palette_fmt=storage_fmt,
             palette=palette,
             compression=compression,
@@ -152,9 +150,9 @@ class Sprite:
             check(ok, "LZW decompression failed")
 
         if has_palette:  # indexed
-            return decode.indexed_to_rgba(decomp, self.palette)
+            return decode.indexed_rgba(decomp, self.palette)
         else:  # sequential
-            return decode.sequential(decomp)
+            return decode.sequential_rgba(decomp)
 
 
 type ColorDecoder = Callable[[bytes], int]
@@ -163,23 +161,6 @@ type ColorDecoder = Callable[[bytes], int]
 class FormatSpec(NamedTuple):
     code: Sprite.Palette
     bpp: int
-
-
-DECODERS: dict[int, ColorDecoder] = {
-    # 2: decode.rgb565,
-    # 3: decode.rgb888,
-    4: decode.argb8888,
-}
-
-SPECS = {
-    spec.code: spec
-    for spec in [
-        FormatSpec(Sprite.Palette.UNDEFINED, 0),
-        FormatSpec(Sprite.Palette.RGB565, 2),
-        FormatSpec(Sprite.Palette.RGB888, 3),  # disallowed in 3.6.0.55?
-        FormatSpec(Sprite.Palette.ARGB8888, 4),
-    ]
-}
 
 
 @dataclass(repr=False)

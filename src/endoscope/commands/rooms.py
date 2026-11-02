@@ -175,7 +175,7 @@ class BitmapExtractor:
         ok, decomp = decode.lzw(raw, origsize)
         check(ok, "LZW decompression failed")
         decomp = decomp[8:]
-        return decode.sequential(decomp)
+        return decode.sequential_rgba(decomp)
 
     def _extract_mask(self, pout: Path, br: BinaryReader) -> None:
         w = br.u16()
@@ -185,7 +185,7 @@ class BitmapExtractor:
             palette = decode.PALETTE256
             br.skip(3 * 256)
             if read != 0:
-                bitmap = decode.indexed_to_rgb(decomp, palette)
+                bitmap = decode.indexed_rgb(decomp, palette)
                 self._save_bitmap(pout, w, h, bitmap, False)
         except ValueError as exc:
             logger.exception("Unable to extract mask %s", pout, exc_info=exc)

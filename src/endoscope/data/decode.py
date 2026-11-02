@@ -8,9 +8,6 @@ N = 4096
 F = 16
 MASK_N = N - 1
 
-# these dogshit sprites are stored as little endian ARGB on the disk.
-_PERM = [2, 1, 0, 3]  # ARGB (BGRA in LE) -> RGBA
-
 
 def palette_256() -> list[int]:
     palette = []
@@ -33,15 +30,6 @@ def palette_256() -> list[int]:
 
 
 PALETTE256 = palette_256()
-
-
-def to_rgba(data: bytes) -> bytes:
-    pix = np.frombuffer(data, dtype=np.uint8).reshape(-1, 4)
-    return pix[:, _PERM].tobytes()
-
-
-def to_rgb(data: bytes) -> bytes:
-    return data
 
 
 def rle(bpp: int, size: int, data: bytes) -> bytes:
@@ -225,29 +213,27 @@ def lzw(src: bytes, dst_sz: int) -> tuple[bool, bytes]:  # -> (ok, dst)
     return src_ptr == src_sz, dst[:dst_ptr].take_bytes()
 
 
-def argb8888(b: bytes) -> int:
-    return int.from_bytes(to_rgba(b), "little")
-
-
-def _indexed_rgba(palette: list[int]) -> np.ndarray:
+def rgba_palette(palette: list[int]) -> np.ndarray:
     return np.frombuffer(
         b"".join(v.to_bytes(4, "little") for v in palette), dtype=np.uint8
-    ).reshape(len(palette), 4)
+    ).reshape(len(palette), 4)[
+        :, [2, 1, 0, 3]
+    ]  # BGRA (i.e. ARGB in LE) -> RGBA (swap R <-> B)
 
 
-def _indexed_rgb(palette: list[int]) -> np.ndarray:
+def rgb_palette(palette: list[int]) -> np.ndarray:
     return np.frombuffer(
         b"".join(v.to_bytes(3, "big") for v in palette), dtype=np.uint8
     ).reshape(len(palette), 3)
 
 
-def indexed_to_rgba(data: bytes, palette: list[int]) -> bytes:
-    return _indexed_rgba(palette)[np.frombuffer(data, dtype=np.uint8)].tobytes()
+def indexed_rgba(data: bytes, palette: list[int]) -> bytes:
+    return rgba_palette(palette)[np.frombuffer(data, dtype=np.uint8)].tobytes()
 
 
-def indexed_to_rgb(data: bytes, palette: list[int]) -> bytes:
-    return _indexed_rgb(palette)[np.frombuffer(data, dtype=np.uint8)].tobytes()
+def indexed_rgb(data: bytes, palette: list[int]) -> bytes:
+    return rgb_palette(palette)[np.frombuffer(data, dtype=np.uint8)].tobytes()
 
 
-def sequential(data: bytes) -> bytes:
-    return to_rgba(data)
+def sequential_rgba(data: bytes) -> bytes:
+    return np.frombuffer(data, dtype=np.uint8).reshape(-1, 4)[:, [2, 1, 0, 3]].tobytes()
