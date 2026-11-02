@@ -143,7 +143,7 @@ class SpriteExtractor:
         end = time.time()
         logger.info(
             "Done. Exported %d sprites in %.2f seconds",
-            self.num_sprites,
+            len(self.indices),
             end - start,
         )
 
