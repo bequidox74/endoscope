@@ -12,13 +12,15 @@ def main() -> None:
         prog="endoscope",
         description="Datamining tool for Endacopia (and maybe other AGS 3.6.0 games)",
     )
-    parser.add_argument(
+
+    log_level = parser.add_mutually_exclusive_group()
+    log_level.add_argument(
         "-q",
         "--quiet",
         action="store_true",
         help="suppress console output",
     )
-    parser.add_argument(
+    log_level.add_argument(
         "-l",
         "--log-level",
         type=str.lower,
@@ -26,6 +28,7 @@ def main() -> None:
         help="logging level",
         default="info",
     )
+
     parser.add_argument(
         "--profile",
         action="store_true",
