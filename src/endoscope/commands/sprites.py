@@ -131,18 +131,20 @@ class SpriteExtractor:
         self.num_sprites = spridx.count
 
         ### Process sprites ###
-        start = time.time()
-        self.indices = filter_ranges(range(self.num_sprites), include, exclude)
         os.makedirs(pout, exist_ok=True)
+
+        self.indices = filter_ranges(range(self.num_sprites), include, exclude)
         ranges = split_range(0, len(self.indices), threads)
-        with concurrent.futures.ThreadPoolExecutor(
-            len(self.indices) // threads
-        ) as executor:
+
+        start = time.time()
+        with concurrent.futures.ThreadPoolExecutor(threads) as executor:
             for i, r in enumerate(ranges):
                 executor.submit(self._process_files, r[0], r[1], i)
         end = time.time()
         logger.info(
-            "Done. Exported %d sprites in %.2f seconds", self.num_sprites, end - start
+            "Done. Exported %d sprites in %.2f seconds",
+            self.num_sprites,
+            end - start,
         )
 
     def _process_files(self, start: int, end: int, id_: int):
