@@ -1,4 +1,5 @@
 import itertools
+import json
 import logging
 from pathlib import Path
 from typing import BinaryIO, Literal
@@ -114,6 +115,12 @@ def check_dir(p: Path) -> None:
             "which is probably NOT what you want. If this IS what "
             "you want, make sure you are running as admin!"
         )
+
+
+def dump_json(obj: dict, minify: bool) -> str:
+    indent = None if minify else 2
+    sep = (",", ":") if minify else (",", ": ")
+    return json.dumps(obj, indent=indent, separators=sep)
 
 
 def check_datafile(p: Path) -> None:

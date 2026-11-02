@@ -1,3 +1,4 @@
+import dataclasses
 import itertools
 import logging
 import os
@@ -7,11 +8,12 @@ from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from fnmatch import fnmatch
 from pathlib import Path
+from typing import ClassVar
 
 from PIL import Image
 
 from endoscope._internal.reader import BinaryReader
-from endoscope._internal.utils import check, check_dir
+from endoscope._internal.utils import check, check_dir, dump_json
 from endoscope.commands.command import Command, command
 from endoscope.data import decode
 from endoscope.data.room import Room
@@ -29,6 +31,7 @@ class RoomsCommand(Command):
         )
         subp = parser.add_subparsers(required=True)
         _BitmapsCommand().init_parser(subp)
+        _JsonCommand().init_parser(subp)
 
 
 @command("bitmaps", "extract room bitmaps")
@@ -71,6 +74,117 @@ class _BitmapsCommand(Command):
             args.glob,
             args.extension,
         )
+
+
+@command("json", "export room data to JSON")
+class _JsonCommand(Command):
+    def _init_parser(self, parser: ArgumentParser) -> None:
+        parser.add_argument(
+            "-o",
+            "--output",
+            type=Path,
+            nargs="?",
+            help="output path",
+        )
+        parser.add_argument(
+            "-g",
+            "--glob",
+            help="file name glob pattern (e.g. *.crm)",
+            default="*.crm",
+        )
+        parser.add_argument(
+            "-m",
+            "--minify",
+            action="store_true",
+            help="minify resulting JSON",
+        )
+
+    def execute(self, args: Namespace) -> None:
+        JsonExporter(args.output, args.roomdir, args.glob, args.minify)
+
+
+class JsonExporter:
+    _TO_COPY: ClassVar = (
+        "width",
+        "height",
+        "edge_top",
+        "edge_bottom",
+        "edge_left",
+        "edge_right",
+    )
+
+    def __init__(
+        self, pout: Path | None, roomdir: Path, glob: str, minify: bool
+    ) -> None:
+        self.pout = pout
+        self.roomdir = roomdir
+        self.glob = glob
+        self.minify = minify
+
+        out: dict[str, dict] = {}
+        for p in roomdir.iterdir():
+            if not fnmatch(p.name, glob):
+                continue
+            logger.debug("Processing %s", p.name)
+            out[p.stem] = self._export_room_json(p)
+
+        jsonstr = dump_json(out, minify)
+        if pout is not None:
+            pout.write_text(jsonstr, "utf-8")
+        else:
+            print(jsonstr)
+
+    def _export_room_json(self, pin: Path) -> dict:
+        with open(pin, "rb") as sin:
+            br = BinaryReader(sin)
+            rm = Room.read(br)
+
+        out = {}
+        for a in JsonExporter._TO_COPY:
+            out[a] = getattr(rm, a)
+
+        regions: list = []
+        for r in rm.regions:
+            rout: dict = {}
+            rout["events"] = r.events
+            rout["light"] = r.light
+            rout["tint"] = r.tint
+            if rout:
+                regions.append(rout)
+        if regions:
+            out["regions"] = regions
+
+        hotspots: list = []
+        for i, h in enumerate(rm.hotspots):
+            hout: dict = {}
+            hout["name"] = h.name
+            hout["scrName"] = h.scr_name
+            hout["walktoX"] = h.walkto_x
+            hout["walktoY"] = h.walkto_y
+            hout["events"] = h.events
+            hout["properties"] = rm.hotspot_props[i]
+            if hout:
+                hotspots.append(hout)
+        if hotspots:
+            out["hotspots"] = hotspots
+
+        objects: list = []
+        for i, o in enumerate(rm.objects):
+            oout: dict = {}
+            oout["name"] = rm.obj_names[i]
+            oout["scrName"] = rm.obj_scrnames[i]
+            oout.update(dataclasses.asdict(o))
+            oout["properties"] = rm.obj_props[i]
+            if oout:
+                objects.append(oout)
+        if objects:
+            out["objects"] = objects
+
+        messages = [m.cstr for m in rm.messages]
+        if messages:
+            out["messages"] = messages
+
+        return out
 
 
 class BitmapExtractor:
@@ -190,7 +304,9 @@ class BitmapExtractor:
         except ValueError as exc:
             logger.exception("Unable to extract mask %s", pout, exc_info=exc)
 
-    def _save_bitmap(self, out_path: Path, w: int, h: int, bitmap: bytes, rgba: bool) -> None:
+    def _save_bitmap(
+        self, out_path: Path, w: int, h: int, bitmap: bytes, rgba: bool
+    ) -> None:
         if self.dry_run:
             return
         os.makedirs(out_path.parent, exist_ok=True)

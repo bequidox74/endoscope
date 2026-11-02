@@ -97,7 +97,6 @@ class Region:
     events: list[str]
 
 
-@dataclass
 class Room:
     class BlockID(IntEnum):
         NONE = 0
@@ -112,7 +111,7 @@ class Room:
         OBJECT_SC_NAMES = 9
         EOF = 0xFF
 
-    EXT_SOPTS = "ext_sopts"
+    EXT_SOPTS: ClassVar = "ext_sopts"
     ROOM_BLOCK_FLAGS: ClassVar = Block.Flag.NUM_ID8 | Block.Flag.FILE64
     SUFFIX: ClassVar = ".crm"
     _SKIP: ClassVar = (BlockID.COMPSCR, BlockID.COMPSCR2, BlockID.COMPSCR3)
@@ -135,9 +134,9 @@ class Room:
     # i32 unused
     num_regions: int  # i32
     room_events: list[str]  # cstr[u32]
-    hotspot_events: list[str]  # cstr[u32]
-    object_events: list[str]  # cstr[u32]
-    region_events: list[str]  # cstr[u32]
+    # hotspot_events: list[str]  # cstr[u32]
+    # object_events: list[str]  # cstr[u32]
+    # region_events: list[str]  # cstr[u32]
     # obj_baselines: list[int]  # i32[len(objects)]
     width: int  # i16
     height: int  # i16
