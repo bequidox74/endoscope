@@ -5,7 +5,7 @@ have a single data file).
 
 Features:
 
-- Use as a Python library or a command line tool.
+- Use as a Python library, a command line tool, or a GUI application (Tkinter).
 - Unpack assets (`unpack`). Supports `.exe`, `.ags`, and `.vox`.
 - Unpack sprites (`sprites`). Uses threads to speed up extraction.
 - Export game data (from `game28.dta`) to JSON (`data`).
@@ -21,10 +21,7 @@ Licensed under the MIT license.
 
 ## Planned features / TODO
 
-- **Tkinter GUI.** Some people prefer GUI to CLI, so a portable and
-  Python-native GUI would be appreciated.
-- **Room background extraction.** Room backgrounds are similar to sprites, but
-  rooms in AGS use a different, block-based binary format.
+- Automatically make GIFs from views with correct delays between the frames.
 
 ## Installation
 
@@ -43,8 +40,10 @@ You can use `pip` to install the project as an editable package. Run
 
 ## Usage
 
-When installed and added to your PATH, you can run it directly from the command
-line. All commands have help messages.
+On Windows, run the extracted executable to open a GUI.
+
+When installed and added to your PATH, you can also run it directly from the
+command line. All commands have help messages.
 
 ## Python dependencies
 
