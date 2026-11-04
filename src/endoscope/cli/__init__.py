@@ -51,7 +51,9 @@ def cli_main() -> None:
         format="%(message)s",
         level=getattr(logging, args.log_level.upper()),
     )
-    logging.root.disabled = args.quiet
+    if args.quiet:
+        logging.disable(logging.CRITICAL)
+        logging.root.disabled = True
 
     if args.profile:
         import profiling.tracing
