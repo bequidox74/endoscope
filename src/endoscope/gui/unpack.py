@@ -76,7 +76,9 @@ class UnpackWrapper:
         exc: str = gui["exclude"]
 
         gui.set_label("status", UnpackWrapper._STATUS_WORKING)
-        self._unpacker = unpack.AssetUnpacker(
+        self._unpacker = unpack.AssetUnpacker()
+        self._future = self._executor.submit(
+            self._unpacker.unpack,
             pin,
             pout,
             inc.split() if inc else [],
@@ -84,7 +86,6 @@ class UnpackWrapper:
             int(gui["chunk"]),
             gui["dryrun"],
         )
-        self._future = self._executor.submit(self._unpacker.unpack)
         self._future.add_done_callback(self._on_done)
 
     def _stop(self) -> None:

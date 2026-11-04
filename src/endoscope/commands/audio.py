@@ -1,71 +1,54 @@
 import logging
 import shutil
-from argparse import ArgumentParser, Namespace, _SubParsersAction
+import threading
 from pathlib import Path
 
-from endoscope._internal.utils import check_datafile, check_indir
+from endoscope._internal.utils import check_indir, check_infile
 from endoscope.data import utils
-from endoscope.data.gamefile import GameData
 
-logger = logging.root
-
-
-def init_parser(subp: _SubParsersAction) -> None:
-    parser: ArgumentParser = subp.add_parser("audio", help="audio file processing")
-    audio_subp = parser.add_subparsers(required=True)
-    _init_rename(audio_subp)
-
-
-def _init_rename(subp: _SubParsersAction) -> None:
-    parser: ArgumentParser = subp.add_parser(
-        "rename",
-        help="renames unpacked audio files in accordance with their script names",
-    )
-
-    parser.add_argument("input", type=Path, help="input data file")
-    parser.add_argument("audio_dir", type=Path, help="directory containing audio files")
-
-    parser.add_argument(
-        "-d",
-        "--dry-run",
-        action="store_true",
-        help="perform a dry run without modifying files",
-    )
-
-    parser.set_defaults(func=_main_rename)
-
-
-def _main_rename(args: Namespace) -> None:
-    AudioFileRenamer(args.input, args.audio_dir, args.dry_run)
+logger = logging.getLogger(__name__)
 
 
 class AudioFileRenamer:
-    def __init__(
+    def __init__(self) -> None:
+        self.input_path: Path
+        self.audio_dir: Path
+        self.dry_run: bool
+        self.stop_event: threading.Event
+
+        self._fname_index: dict[str, str] = {}
+
+    def rename(
         self,
-        pin: Path,
-        paud: Path,
+        input_path: Path,
+        audio_dir: Path,
         dry_run: bool,
     ) -> None:
-        check_datafile(pin)
-        check_indir(paud)
+        self.input_path = input_path
+        self.audio_dir = audio_dir
+        self.dry_run = dry_run
+        self.stop_event = threading.Event()
 
-        gd = utils.read_gamedata(pin)
-        file_index = self._build_index(gd)
+        check_infile(input_path)
+        check_indir(audio_dir)
 
-        for p in paud.iterdir():
+        self._build_index()
+
+        index = self._fname_index
+        for p in audio_dir.iterdir():
+            if self.stop_event.is_set():
+                break
             try:
-                name = file_index[p.name]
+                name = index[p.name]
             except KeyError:
-                logger.debug("File did not match: %s", paud.relative_to(p))
                 continue
 
-            old_name = p.stem
             if not dry_run:
                 shutil.move(p, p.with_stem(name))
-            logger.info("Renamed %s to %s", old_name, name)
 
-    def _build_index(self, gd: GameData) -> dict[str, str]:
+    def _build_index(self) -> None:
+        gd = utils.read_gamedata(self.input_path)
         index = {}
         for clip in gd.audio_clips:
             index[clip.file_name] = clip.script_name
-        return index
+        self._fname_index = index

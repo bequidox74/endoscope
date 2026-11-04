@@ -2,6 +2,7 @@ import logging
 import sys
 import tkinter as tk
 
+import endoscope
 from endoscope.gui.data import DataWrapper
 from endoscope.gui.main_menu import MainMenu
 from endoscope.gui.rooms import RoomsBitmapsWrapper
@@ -9,10 +10,14 @@ from endoscope.gui.sprites import SpritesWrapper
 from endoscope.gui.unpack import UnpackWrapper
 from endoscope.gui.views import ViewsExportWrapper
 
-logger = logging.root
+logger = logging.getLogger(__name__)
 
 
 def gui_main() -> None:
+    logging.basicConfig(
+        format="%(message)s",
+        level=logging.DEBUG,
+    )
     Gui()
 
 
@@ -24,7 +29,7 @@ class Gui:
         self._frame.pack(fill="both", expand=True)
 
         self._tk.minsize(width=200, height=0)
-        self._tk.title("Endoscope 3.0")
+        self._tk.title(endoscope.FULL_NAME)
 
         self._tk.withdraw()
         self._make_menu()

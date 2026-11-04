@@ -1,36 +1,20 @@
 import logging
-from argparse import ArgumentParser, Namespace
 from collections.abc import Callable
 from pathlib import Path
 
-from endoscope._internal.utils import check_datafile, dump_json
-from endoscope.commands.command import Command, command
+from endoscope._internal.utils import check_infile, dump_json
 from endoscope.data import utils
 from endoscope.data.character import Character
 from endoscope.data.gamefile import AudioClip, GameData
 
-logger = logging.root
+logger = logging.getLogger(__name__)
 
 
 sections: dict[str, Callable] = {}
 
 
-@command("data", "extract data from game28.dta to JSON")
-class DataCommand(Command):
-    def _init_parser(self, parser: ArgumentParser) -> None:
-        parser.add_argument("input", type=Path, help="input data file")
-        parser.add_argument(
-            "what",
-            nargs="*",
-            help=f"what sections to export ({get_available_sections()})",
-        )
-
-    def execute(self, args: Namespace) -> None:
-        print(gamedata_to_json(args.input, args.what))
-
-
 def gamedata_to_json(pin: Path, what: list[str]) -> str:
-    check_datafile(pin)
+    check_infile(pin)
     gd = utils.read_gamedata(pin)
     if not what:
         what = list(sections.keys())

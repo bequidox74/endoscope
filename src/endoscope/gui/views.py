@@ -82,7 +82,7 @@ class ViewsExportWrapper:
     def _stop(self) -> None:
         if self._extractor is None:
             return
-        self._extractor.stop = True
+        self._extractor.stop.set()
 
     def _on_done(self, future: Future[tuple[int, float]]) -> None:
         try:

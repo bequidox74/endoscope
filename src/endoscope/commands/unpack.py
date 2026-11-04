@@ -1,92 +1,31 @@
 import logging
 import os
 import time
-from argparse import ArgumentParser, Namespace
 from fnmatch import fnmatch
 from pathlib import Path
 
 from endoscope._internal import utils
 from endoscope._internal.utils import check, check_indir, check_infile
-from endoscope.commands.command import Command, command
 from endoscope.data.clib import Clib
 from endoscope.data.gamefile import GameData
 from endoscope.data.utils import read_gamedata
 
-logger = logging.root
+logger = logging.getLogger(__name__)
 
 CHUNK_SIZE_KIB = 64
-
-
-@command("unpack", "unpack game assets")
-class UnpackCommand(Command):
-    def _init_parser(self, parser: ArgumentParser) -> None:
-        parser.add_argument(
-            "input",
-            type=Path,
-            help="input file (.exe, .ags, .vox)",
-        )
-        parser.add_argument(
-            "output",
-            type=Path,
-            help="output directory (will be created if needed)",
-        )
-
-        parser.add_argument(
-            "-c",
-            "--chunk-size",
-            default=CHUNK_SIZE_KIB,
-            type=int,
-            help=f"chunk size in KiB for copying (default is {CHUNK_SIZE_KIB})",
-        )
-        parser.add_argument(
-            "-d",
-            "--dry-run",
-            action="store_true",
-            help="do a dry run without writing any files (effectively lists assets)",
-        )
-
-        filters = parser.add_mutually_exclusive_group()
-        filters.add_argument(
-            "-i",
-            "--include",
-            nargs="+",
-            help="wildcards for included files (can have multiple)",
-        )
-        filters.add_argument(
-            "-e",
-            "--exclude",
-            nargs="+",
-            help="wildcards for excluded files (can have multiple)",
-        )
-
-    def execute(self, args: Namespace) -> None:
-        AssetUnpacker(
-            pin=args.input,
-            pout=args.output,
-            include=args.include,
-            exclude=args.exclude,
-            chunk_size=args.chunk_size,
-            dry_run=args.dry_run,
-        ).unpack()
 
 
 class AssetUnpacker:
     def __init__(
         self,
-        pin: Path,
-        pout: Path,
-        include: list[str],
-        exclude: list[str],
-        chunk_size: int,
-        dry_run: bool,
     ) -> None:
         self.stop = False  # flag for killing the extractor
-        self.pin = pin
-        self.pout = pout
-        self.include = include
-        self.exclude = exclude
-        self.chunk_size = chunk_size
-        self.dry_run = dry_run
+        self.pin: Path
+        self.pout: Path
+        self.include: list[str]
+        self.exclude: list[str]
+        self.chunk_size: int
+        self.dry_run: bool
 
         self._audio_index: dict[str, str] = {}
 
@@ -98,13 +37,19 @@ class AssetUnpacker:
 
     def unpack(
         self,
+        pin: Path,
+        pout: Path,
+        include: list[str],
+        exclude: list[str],
+        chunk_size: int,
+        dry_run: bool,
     ) -> tuple[int, float]:
-        pin = self.pin
-        pout = self.pout
-        include = self.include
-        exclude = self.exclude
-        chunk_size = self.chunk_size
-        dry_run = self.dry_run
+        self.pin = pin
+        self.pout = pout
+        self.include = include
+        self.exclude = exclude
+        self.chunk_size = chunk_size
+        self.dry_run = dry_run
         cc = utils.ChunkedCopy()
 
         check_infile(pin)
@@ -120,7 +65,7 @@ class AssetUnpacker:
         start = time.time()
         for f in clib.files:
             if self.stop:
-                cc.stop = True  # also tell the copy to stop
+                cc.stop.set()
                 break
             if not _filter(f.name, include, exclude):
                 continue

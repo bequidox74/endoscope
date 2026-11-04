@@ -1,8 +1,10 @@
 import itertools
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import BinaryIO, Literal
+from warnings import deprecated
 
 SUFFIXES = (".exe", ".ags", ".vox")
 
@@ -16,7 +18,7 @@ def check(cond: bool, message: str, *args) -> None:
 
 class ChunkedCopy:
     def __init__(self) -> None:
-        self.stop = False
+        self.stop = threading.Event()
 
     def copy(
         self,
@@ -29,7 +31,7 @@ class ChunkedCopy:
         src.seek(offset)
         copied: int = 0
         while copied < size:
-            if self.stop:
+            if self.stop.is_set():
                 return
             left = size - copied
             chunk = src.read(min(chunk_size, left))
@@ -133,6 +135,7 @@ def dump_json(obj: dict, minify: bool = False) -> str:
     return json.dumps(obj, indent=indent, separators=sep)
 
 
+@deprecated("Deprecated, use check_infile() instead.")
 def check_datafile(p: Path) -> None:
     check(
         is_datafile(p),

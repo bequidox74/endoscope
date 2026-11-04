@@ -2,8 +2,8 @@ import dataclasses
 import itertools
 import logging
 import os
+import threading
 import time
-from argparse import ArgumentParser, Namespace
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from fnmatch import fnmatch
@@ -14,93 +14,10 @@ from PIL import Image
 
 from endoscope._internal.reader import BinaryReader
 from endoscope._internal.utils import check, check_indir, dump_json
-from endoscope.commands.command import Command, command
 from endoscope.data import decode
 from endoscope.data.room import Room
 
 logger = logging.root
-
-
-@command("rooms", "room operations")
-class RoomsCommand(Command):
-    def _init_parser(self, parser: ArgumentParser) -> None:
-        parser.add_argument(
-            "roomdir",
-            type=Path,
-            help="directory with room (.crm) files",
-        )
-        subp = parser.add_subparsers(required=True)
-        _BitmapsCommand().init_parser(subp)
-        _JsonCommand().init_parser(subp)
-
-
-@command("bitmaps", "extract room bitmaps")
-class _BitmapsCommand(Command):
-    def _init_parser(self, parser: ArgumentParser) -> None:
-        parser.add_argument("output", type=Path, help="output directory")
-
-        parser.add_argument(
-            "-t",
-            "--threads",
-            type=int,
-            help="number of threads to use (default: 3)",
-            default=3,
-        )
-        parser.add_argument(
-            "-d",
-            "--dry-run",
-            action="store_true",
-            help="perform a dry run without creating files",
-        )
-        parser.add_argument(
-            "-g",
-            "--glob",
-            help="file name glob pattern (e.g. *.crm)",
-            default="*.crm",
-        )
-        parser.add_argument(
-            "-x",
-            "--extension",
-            help="extension to save the files with (e.g. png, jpg, tga, tiff, etc.)",
-            default="png",
-        )
-
-    def execute(self, args: Namespace) -> None:
-        BitmapExtractor().extract(
-            args.roomdir,
-            args.output,
-            args.threads,
-            args.dry_run,
-            args.glob,
-            args.extension,
-        )
-
-
-@command("json", "export room data to JSON")
-class _JsonCommand(Command):
-    def _init_parser(self, parser: ArgumentParser) -> None:
-        parser.add_argument(
-            "-o",
-            "--output",
-            type=Path,
-            nargs="?",
-            help="output path",
-        )
-        parser.add_argument(
-            "-g",
-            "--glob",
-            help="file name glob pattern (e.g. *.crm)",
-            default="*.crm",
-        )
-        parser.add_argument(
-            "-m",
-            "--minify",
-            action="store_true",
-            help="minify resulting JSON",
-        )
-
-    def execute(self, args: Namespace) -> None:
-        JsonExporter(args.output, args.roomdir, args.glob, args.minify)
 
 
 class JsonExporter:
@@ -189,7 +106,15 @@ class JsonExporter:
 
 class BitmapExtractor:
     def __init__(self) -> None:
-        self.stop = False
+        self.roomdir: Path
+        self.pout: Path
+        self.nthreads: int
+        self.dry_run: bool
+        self.glob: str
+        self.extension: str
+        self.stop: threading.Event
+
+        self._count = 0
 
     def extract(
         self,
@@ -206,8 +131,8 @@ class BitmapExtractor:
         self.dry_run = dry_run
         self.glob = glob
         self.extension = extension
+        self.stop = threading.Event()
 
-        self.stop = False
         self._count = 0
 
         check_indir(roomdir)
@@ -241,7 +166,7 @@ class BitmapExtractor:
 
     def _process_batch(self, batch: Iterable[Path]) -> None:
         for p in batch:
-            if self.stop:
+            if self.stop.is_set():
                 break
             self._count += 1
             logger.debug("Processing room %s", p.name)

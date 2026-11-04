@@ -48,7 +48,9 @@ class SpritesWrapper:
         extension = gui["extension"]
         threads = SpriteExtractor.DEFAULT_THREADS if bool(gui["threads"]) else 1
 
-        self._extractor = SpriteExtractor(
+        self._extractor = SpriteExtractor()
+        self._future = self._executor.submit(
+            self._extractor.extract,
             pin,
             pout,
             include,
@@ -57,13 +59,13 @@ class SpritesWrapper:
             extension,
             threads,
         )
-        self._future = self._executor.submit(self._extractor.extract)
+        self._future.add_done_callback(self._on_done)
         gui.set_label("status", "Working...")
 
     def _stop(self) -> None:
         if self._extractor is None:
             return
-        self._extractor.stop = True
+        self._extractor.stop.set()
 
     def _on_done(self, future: Future[tuple[int, float]]) -> None:
         try:
