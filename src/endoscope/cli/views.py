@@ -1,6 +1,8 @@
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
+from endoscope.commands.views import ViewsExporter, lookup_sprite, views_to_json
+
 from .command import Command, command
 
 
@@ -15,7 +17,6 @@ class ViewsCommand(Command):
 
         subp = parser.add_subparsers(required=True)
         _JsonCommand().init_parser(subp)
-        _InfoCommand().init_parser(subp)
         _ExportCommand().init_parser(subp)
         _LookupCommand().init_parser(subp)
 
@@ -31,23 +32,14 @@ class _JsonCommand(Command):
         )
 
     def execute(self, args: Namespace) -> None:
-        raise NotImplementedError
-
-
-@command("info", "print info about a view")
-class _InfoCommand(Command):
-    def _init_parser(self, parser: ArgumentParser) -> None:
-        parser.add_argument("view", help="ID or name of the view")
-
-    def execute(self, args: Namespace) -> None:
-        raise NotImplementedError
+        print(views_to_json(args.input, args.minify))
 
 
 @command("export", "export views into a file system hierarchy")
 class _ExportCommand(Command):
     def _init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
-            "sprite_dir",
+            "sprdir",
             type=Path,
             help="directory with extracted sprites",
         )
@@ -83,7 +75,7 @@ class _ExportCommand(Command):
             "--threads",
             type=int,
             help="number of threads to use (default is 10)",
-            default=10,
+            default=ViewsExporter.THREADS,
         )
 
         filters_group = parser.add_mutually_exclusive_group()
@@ -99,7 +91,17 @@ class _ExportCommand(Command):
         )
 
     def execute(self, args: Namespace) -> None:
-        raise NotImplementedError
+        ViewsExporter().export(
+            args.input,
+            args.output,
+            args.sprdir,
+            args.include,
+            args.exclude,
+            args.dirs,
+            args.extension,
+            args.move,
+            args.threads,
+        )
 
 
 @command("lookup", "lookup views that reference a sprite")
@@ -108,4 +110,4 @@ class _LookupCommand(Command):
         parser.add_argument("sprite", type=int, help="the sprite ID to look up")
 
     def execute(self, args: Namespace) -> None:
-        raise NotImplementedError
+        lookup_sprite(args.input, args.sprite)

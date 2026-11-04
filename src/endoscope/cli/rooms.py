@@ -28,8 +28,8 @@ class _BitmapsCommand(Command):
             "-t",
             "--threads",
             type=int,
-            help="number of threads to use (default: 3)",
-            default=3,
+            help=f"number of threads to use (default: {BitmapExtractor.THREADS})",
+            default=BitmapExtractor.THREADS,
         )
         parser.add_argument(
             "-d",

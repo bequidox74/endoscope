@@ -4,7 +4,7 @@ from pathlib import Path
 
 from endoscope._internal.utils import parse_ranges
 from endoscope.commands.sprites import SpriteExtractor
-from endoscope.gui._utils import error
+from endoscope.gui._utils import check_program_files, error
 from endoscope.gui.command_gui import CommandGui
 
 
@@ -41,10 +41,29 @@ class SpritesWrapper:
             return
 
         gui = self._gui
+        if not gui["input"]:
+            error("No input path provided.")
+            return
         pin = Path(gui["input"])
+
+        if not gui["output"]:
+            error("No output path provided.")
+            return
         pout = Path(gui["output"])
-        include = parse_ranges(gui["include"])
-        exclude = parse_ranges(gui["exclude"])
+        if not check_program_files(pout):
+            return
+
+        try:
+            include = parse_ranges(gui["include"])
+        except ValueError as exc:
+            error(f"Invalid include range:\n{exc.args[0]}")
+            return
+
+        try:
+            exclude = parse_ranges(gui["exclude"])
+        except ValueError as exc:
+            error(f"Invalid exclude range:\n{exc.args[0]}")
+            return
         extension = gui["extension"]
         threads = SpriteExtractor.DEFAULT_THREADS if bool(gui["threads"]) else 1
 

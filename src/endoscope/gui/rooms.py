@@ -54,7 +54,7 @@ class RoomsBitmapsWrapper:
         if not glob:
             glob = "*.crm"
         extension = gui["extension"]
-        threads = 10 if bool(gui["threads"]) else 1
+        threads = BitmapExtractor.THREADS if bool(gui["threads"]) else 1
 
         self._extractor = BitmapExtractor()
         self._future = self._executor.submit(

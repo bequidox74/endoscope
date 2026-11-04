@@ -8,6 +8,7 @@ import shutil
 import threading
 import time
 from pathlib import Path
+from typing import ClassVar
 
 from endoscope._internal.reader import BinaryReader
 from endoscope._internal.utils import (
@@ -26,17 +27,17 @@ logger = logging.root
 AUDIO_ARRAY_ID_NONE = 4294967295  # -1 in two's complement.
 INDEX_FILE_NAME = "sprindex.json"
 
-def _to_json(pin: Path, minify: bool = True) -> str:
+def views_to_json(pin: Path, minify: bool = True) -> str:
     check_infile(pin)
     gd = read_gamedata(pin)
-    out_json = views_to_json(gd)
+    out_json = _to_json(gd)
 
     indent = None if minify else 2
     separators = (",", ":") if minify else (",", ": ")
     return json.dumps(out_json, indent=indent, separators=separators)
 
 
-def views_to_json(gd: GameData) -> list:
+def _to_json(gd: GameData) -> list:
     out = []
     for vi, view in enumerate(gd.views):
         view_json: dict = {}
@@ -75,6 +76,8 @@ def views_to_json(gd: GameData) -> list:
 
 
 class ViewsExporter:
+    THREADS: ClassVar = 10
+
     def __init__(self) -> None:
         self.pin: Path
         self.pout: Path
@@ -93,7 +96,7 @@ class ViewsExporter:
         self._gd: GameData
         self._indices: list[int]
 
-    def extract(
+    def export(
         self,
         pin: Path,
         pout: Path,

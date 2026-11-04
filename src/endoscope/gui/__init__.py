@@ -38,7 +38,7 @@ class Gui:
         self._tk.mainloop()
 
         # prevent threads from lingering after the window is closed
-        logger.info("Main loop finished, exiting")
+        logger.debug("Main loop finished, exiting")
         sys.exit(0)
 
     def _make_menu(self) -> None:
@@ -60,6 +60,7 @@ class Gui:
 
         menu.add_button("Export views", self._views_export)
         menu.end_row()
+        logger.debug("Initialized main menu")
 
     def _unpack(self) -> None:
         UnpackWrapper(self._frame)

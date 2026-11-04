@@ -49,6 +49,5 @@ command line. All commands have help messages.
 
 Python dependencies are listed in `pyproject.toml`.
 
-- [tabulate](https://pypi.org/project/tabulate/) for formatting tabular data.
 - [numpy](https://pypi.org/project/numpy/) because sprite extraction is horribly
   slow otherwise.

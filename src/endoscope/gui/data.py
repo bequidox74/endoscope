@@ -23,13 +23,13 @@ class DataWrapper:
     def _build_gui(self, master: tk.Misc | None) -> None:
         gui = CommandGui(master, "Game data to JSON")
         gui.label("Extracts data from game28.dta to a JSON file.", "desc")
-        gui.file("EXE/AGS/VOX file", "input")
+        gui.file("EXE/AGS file", "input")
         gui.savefile("Save JSON to", "output", "*.json (JSON file);* (All files)")
 
         sections = {s.title(): s for s in data.sections}
         gui.checkboxes("Include", sections, True, "include")
         gui.button("Go", self._go)
-        gui.label("Idle.", "status")
+        gui.label(DataWrapper._STATUS_IDLE, "status")
         self._gui = gui
 
     def _go(self) -> None:
@@ -38,13 +38,17 @@ class DataWrapper:
 
         gui = self._gui
         what = [x[1] for x in zip(gui["include"], data.sections) if x[0]]
+        if not gui["input"]:
+            error("No input file provided.")
+            return
+
         self._future = self._executor.submit(
             data.gamedata_to_json,
             Path(gui["input"]),
             what,
         )
         self._future.add_done_callback(self._on_done)
-        gui.set_label("status", "Working...")
+        gui.set_label("status", DataWrapper._STATUS_WORKING)
 
     def _on_done(self, future: Future[str]) -> None:
         try:

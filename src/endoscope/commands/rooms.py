@@ -105,6 +105,8 @@ class JsonExporter:
 
 
 class BitmapExtractor:
+    THREADS: ClassVar = 10
+
     def __init__(self) -> None:
         self.roomdir: Path
         self.pout: Path

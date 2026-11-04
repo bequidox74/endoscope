@@ -54,18 +54,40 @@ class ViewsExportWrapper:
             return
 
         gui = self._gui
+
+        if not gui["input"]:
+            error("No input file provided.")
+            return
         pin = Path(gui["input"])
+
+        if not gui["output"]:
+            error("No output directory provided.")
+            return
         pout = Path(gui["output"])
+
+        if not gui["sprdir"]:
+            error("No sprite directory provided.")
+            return
         sprdir = Path(gui["sprdir"])
-        include = parse_ranges(gui["include"])
-        exclude = parse_ranges(gui["exclude"])
+
+        try:
+            include = parse_ranges(gui["include"])
+        except ValueError as exc:
+            error(f"Invalid include range:\n{exc.args[0]}")
+            return
+
+        try:
+            exclude = parse_ranges(gui["exclude"])
+        except ValueError as exc:
+            error(f"Invalid exclude range:\n{exc.args[0]}")
+            return
         extension = gui["extension"]
         move = gui["action"] == "move"
-        threads = 10 if bool(gui["threads"]) else 1
+        threads = ViewsExporter.THREADS if bool(gui["threads"]) else 1
 
         self._extractor = ViewsExporter()
         self._future = self._executor.submit(
-            self._extractor.extract,
+            self._extractor.export,
             pin,
             pout,
             sprdir,

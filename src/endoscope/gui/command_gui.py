@@ -323,6 +323,7 @@ class CommandGui:
         return self._getters[vid]()
 
     def run(self) -> None:
+        self.root.transient(self.master)
         self.root.lift()
         self.root.grab_set()
         self.root.focus_force()
