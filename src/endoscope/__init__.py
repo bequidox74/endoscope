@@ -3,7 +3,8 @@ import sys
 from argparse import ArgumentParser
 
 from endoscope import gui
-from endoscope.commands import audio, data
+from endoscope.commands import audio
+from endoscope.commands.data import DataCommand
 from endoscope.commands.rooms import RoomsCommand
 from endoscope.commands.sprites import SpritesCommand
 from endoscope.commands.unpack import UnpackCommand
@@ -52,7 +53,7 @@ def cli_main() -> None:
     subp = parser.add_subparsers(title="commands", required=True)
     UnpackCommand().init_parser(subp)
     ViewsCommand().init_parser(subp)
-    data.init_parser(subp)
+    DataCommand().init_parser(subp)
     audio.init_parser(subp)
     SpritesCommand().init_parser(subp)
     RoomsCommand().init_parser(subp)

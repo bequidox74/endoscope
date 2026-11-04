@@ -1,11 +1,10 @@
-import json
 import logging
-from argparse import ArgumentParser, Namespace, _SubParsersAction
+from argparse import ArgumentParser, Namespace
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
-from endoscope._internal.utils import check_datafile
+from endoscope._internal.utils import check_datafile, dump_json
+from endoscope.commands.command import Command, command
 from endoscope.data import utils
 from endoscope.data.character import Character
 from endoscope.data.gamefile import AudioClip, GameData
@@ -16,25 +15,18 @@ logger = logging.root
 sections: dict[str, Callable] = {}
 
 
-def _dumps(obj: Any) -> str:
-    return json.dumps(obj, indent=2, separators=(",", ": "))
+@command("data", "extract data from game28.dta to JSON")
+class DataCommand(Command):
+    def _init_parser(self, parser: ArgumentParser) -> None:
+        parser.add_argument("input", type=Path, help="input data file")
+        parser.add_argument(
+            "what",
+            nargs="*",
+            help=f"what sections to export ({get_available_sections()})",
+        )
 
-
-def init_parser(subp: _SubParsersAction) -> None:
-    parser: ArgumentParser = subp.add_parser("data")
-
-    parser.add_argument("input", type=Path, help="input data file")
-    parser.add_argument(
-        "what",
-        nargs="*",
-        help=f"what sections to export ({get_available_sections()})",
-    )
-
-    parser.set_defaults(func=_main)
-
-
-def _main(args: Namespace) -> None:
-    print(gamedata_to_json(args.input, args.what))
+    def execute(self, args: Namespace) -> None:
+        print(gamedata_to_json(args.input, args.what))
 
 
 def gamedata_to_json(pin: Path, what: list[str]) -> str:
@@ -47,7 +39,7 @@ def gamedata_to_json(pin: Path, what: list[str]) -> str:
     for w in what:
         result[w] = sections[w](gd)
 
-    return _dumps(result)
+    return dump_json(result)
 
 
 def export_chars(gd: GameData) -> list[dict]:

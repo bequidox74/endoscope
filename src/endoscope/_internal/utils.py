@@ -127,7 +127,7 @@ def is_program_files(p: Path) -> bool:
     return "Program Files" in str(p)
 
 
-def dump_json(obj: dict, minify: bool) -> str:
+def dump_json(obj: dict, minify: bool = False) -> str:
     indent = None if minify else 2
     sep = (",", ":") if minify else (",", ": ")
     return json.dumps(obj, indent=indent, separators=sep)
