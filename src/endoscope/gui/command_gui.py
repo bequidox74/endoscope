@@ -293,11 +293,13 @@ class CommandGui:
         hi = high if high is not None else 2**31 - 1
 
         def build(parent) -> Callable[[], str]:
-            spin = ttk.Spinbox(parent, from_=lo, to=hi, width=10)
-            spin.set(
-                default if default is not None else (low if low is not None else 0)
-            )
-            spin.pack(anchor="w")
+            row = ttk.Frame(parent)
+            spin = ttk.Spinbox(row, from_=lo, to=hi, width=10)
+            d = default if default is not None else (low if low is not None else 0)
+            spin.set(d)
+            spin.grid(row=0, column=0)
+            ttk.Button(row, text="R", width=2, command=lambda: spin.set(d)).grid(row=0, column=1)
+            row.pack(anchor="w")
             return spin.get
 
         self._add_row(label, vid, build)
