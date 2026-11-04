@@ -162,7 +162,7 @@ class ViewsExporter:
 
     def _export_views(self, start: int, end: int) -> None:
         for i in range(start, end):
-            if self.stop:
+            if self.stop.is_set():
                 break
             idx = self._indices[i]
             self._export_view(idx)
@@ -193,7 +193,7 @@ class ViewsExporter:
 
         os.makedirs(view_dir, exist_ok=True)
         for li, loop in enumerate(view.loops):
-            if self.stop:
+            if self.stop.is_set():
                 break
             if self.dirs:
                 loop_dir = view_dir / str(li)

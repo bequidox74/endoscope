@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from endoscope.commands import unpack
+from endoscope.commands.unpack import AssetUnpacker
 from endoscope.gui._utils import check_program_files, error
 from endoscope.gui.command_gui import CommandGui
 
@@ -44,7 +45,12 @@ class UnpackWrapper:
         )
         gui.textinput("Include files\n(leave empty for all)", "include", "*.ogg *.crm")
         gui.textinput("Exclude files", "exclude", "*.ogg *.crm")
-        gui.integer("Chunk size (KB)", "chunk", low=1, default=unpack.CHUNK_SIZE_KIB)
+        gui.integer(
+            "Chunk size (KB)",
+            "chunk",
+            low=1,
+            default=AssetUnpacker.CHUNK_SIZE_KIB,
+        )
         gui.button("Go", self._run)
         gui.button("Stop", self._stop)
         gui.label(UnpackWrapper._STATUS_IDLE, "status")
@@ -57,7 +63,7 @@ class UnpackWrapper:
             return
 
         gui.set_label("status", UnpackWrapper._STATUS_WORKING)
-        self._unpacker = unpack.AssetUnpacker()
+        self._unpacker = AssetUnpacker()
         self._future = self._executor.submit(
             self._unpacker.unpack,
             self._pin,
@@ -102,7 +108,7 @@ class UnpackWrapper:
 
     def _stop(self) -> None:
         if self._unpacker is not None:
-            self._unpacker.stop = True
+            self._unpacker.stop.set()
         if self._future is not None:
             self._future.result()
 

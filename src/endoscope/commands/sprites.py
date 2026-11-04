@@ -20,7 +20,7 @@ from endoscope._internal.utils import (
 from endoscope.data.clib import Clib, File
 from endoscope.data.spriteset import Sprite, SpriteIndex, SpriteSet
 
-logger = logging.root
+logger = logging.getLogger(__name__)
 
 
 class SpriteExtractor:
@@ -78,13 +78,13 @@ class SpriteExtractor:
             br = BinaryReader(sin)
             sprset = SpriteSet.read(br)
             self._sprset = sprset
-            logger.info("Loaded spriteset data")
+            logger.debug("Loaded spriteset data")
 
             # read index
             sin.seek(pclib.offset + self._spridx_file.offset)
             spridx = SpriteIndex.read(br)
             self._spridx = spridx
-            logger.info("Loaded sprite index")
+            logger.debug("Loaded sprite index")
         self._off_sprset = pclib.offset + self._sprset_file.offset
 
         check(sprset.spr_file_id == spridx.spr_file_id, "sprite file ID mismatch")
@@ -122,7 +122,7 @@ class SpriteExtractor:
         with open(self.pin, "rb") as sin:
             br = BinaryReader(sin)
             for i in range(start, end):
-                if self.stop:
+                if self.stop.is_set():
                     break
 
                 idx = self._indices[i]

@@ -1,8 +1,10 @@
 import logging
 import os
+import threading
 import time
 from fnmatch import fnmatch
 from pathlib import Path
+from typing import ClassVar
 
 from endoscope._internal import utils
 from endoscope._internal.utils import check, check_indir, check_infile
@@ -12,20 +14,20 @@ from endoscope.data.utils import read_gamedata
 
 logger = logging.getLogger(__name__)
 
-CHUNK_SIZE_KIB = 64
-
 
 class AssetUnpacker:
+    CHUNK_SIZE_KIB: ClassVar = 64
+
     def __init__(
         self,
     ) -> None:
-        self.stop = False  # flag for killing the extractor
         self.pin: Path
         self.pout: Path
         self.include: list[str]
         self.exclude: list[str]
         self.chunk_size: int
         self.dry_run: bool
+        self.stop: threading.Event
 
         self._audio_index: dict[str, str] = {}
 
@@ -50,6 +52,7 @@ class AssetUnpacker:
         self.exclude = exclude
         self.chunk_size = chunk_size
         self.dry_run = dry_run
+        self.stop = threading.Event()
         cc = utils.ChunkedCopy()
 
         check_infile(pin)
@@ -64,7 +67,7 @@ class AssetUnpacker:
         count = 0
         start = time.time()
         for f in clib.files:
-            if self.stop:
+            if self.stop.is_set():
                 cc.stop.set()
                 break
             if not _filter(f.name, include, exclude):

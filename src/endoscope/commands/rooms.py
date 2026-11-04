@@ -17,7 +17,7 @@ from endoscope._internal.utils import check, check_indir, dump_json
 from endoscope.data import decode
 from endoscope.data.room import Room
 
-logger = logging.root
+logger = logging.getLogger(__name__)
 
 
 class JsonExporter:
@@ -31,7 +31,11 @@ class JsonExporter:
     )
 
     def __init__(
-        self, pout: Path | None, roomdir: Path, glob: str, minify: bool
+        self,
+        pout: Path | None,
+        roomdir: Path,
+        glob: str,
+        minify: bool,
     ) -> None:
         self.pout = pout
         self.roomdir = roomdir
@@ -48,6 +52,7 @@ class JsonExporter:
         jsonstr = dump_json(out, minify)
         if pout is not None:
             pout.write_text(jsonstr, "utf-8")
+            logger.info("Result written to %s", pout)
         else:
             print(jsonstr)
 
@@ -148,6 +153,7 @@ class BitmapExtractor:
         logger.debug("Found %d matching files", len(room_files))
         if not room_files:
             logger.info("No files to process, exiting")
+            return 0, 0.0
 
         start = time.time()
         with ThreadPoolExecutor(nthreads) as executor:

@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Callable
 from pathlib import Path
 
@@ -6,9 +5,6 @@ from endoscope._internal.utils import check_infile, dump_json
 from endoscope.data import utils
 from endoscope.data.character import Character
 from endoscope.data.gamefile import AudioClip, GameData
-
-logger = logging.getLogger(__name__)
-
 
 sections: dict[str, Callable] = {}
 
@@ -26,15 +22,15 @@ def gamedata_to_json(pin: Path, what: list[str]) -> str:
     return dump_json(result)
 
 
-def export_chars(gd: GameData) -> list[dict]:
+def _export_chars(gd: GameData) -> list[dict]:
     out: list[dict] = []
     for c in gd.characters:
-        cout = char_to_dict(c)
+        cout = _char_to_dict(c)
         out.append(cout)
     return out
 
 
-def char_to_dict(c: Character) -> dict:
+def _char_to_dict(c: Character) -> dict:
     cout: dict = {}
 
     cout["name"] = c.name
@@ -57,14 +53,14 @@ def char_to_dict(c: Character) -> dict:
     return cout
 
 
-def export_audio(gd: GameData) -> list[dict]:
+def _export_audio(gd: GameData) -> list[dict]:
     out: list[dict] = []
     for a in gd.audio_clips:
-        out.append(audio_to_dict(a))
+        out.append(_audio_to_dict(a))
     return out
 
 
-def audio_to_dict(a: AudioClip) -> dict:
+def _audio_to_dict(a: AudioClip) -> dict:
     out: dict = {}
     out["id"] = a.id
     out["scrName"] = a.script_name
@@ -76,7 +72,7 @@ def audio_to_dict(a: AudioClip) -> dict:
     return out
 
 
-def export_gui_labels(gd: GameData) -> list[dict]:
+def _export_gui_labels(gd: GameData) -> list[dict]:
     out: list[dict] = []
     for l in gd.guis.labels:
         out.append(
@@ -88,7 +84,7 @@ def export_gui_labels(gd: GameData) -> list[dict]:
     return out
 
 
-def export_items(gd: GameData) -> list:
+def _export_items(gd: GameData) -> list:
     out: list[dict] = []
     for item, name in zip(gd.inventory_items, gd.item_names):
         item_out: dict = {}
@@ -99,7 +95,7 @@ def export_items(gd: GameData) -> list:
     return out
 
 
-def export_dialogue(gd: GameData) -> list:
+def _export_dialogue(gd: GameData) -> list:
     out: list[dict] = []
     for i, (dlg, name) in enumerate(zip(gd.dialogs, gd.dialog_names)):
         dout: dict = {}
@@ -112,11 +108,11 @@ def export_dialogue(gd: GameData) -> list:
     return out
 
 
-sections["chars"] = export_chars
-sections["audio"] = export_audio
-sections["labels"] = export_gui_labels
-sections["items"] = export_items
-sections["dialogue"] = export_dialogue
+sections["chars"] = _export_chars
+sections["audio"] = _export_audio
+sections["labels"] = _export_gui_labels
+sections["items"] = _export_items
+sections["dialogue"] = _export_dialogue
 
 
 def get_available_sections() -> str:

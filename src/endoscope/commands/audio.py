@@ -23,7 +23,7 @@ class AudioFileRenamer:
         input_path: Path,
         audio_dir: Path,
         dry_run: bool,
-    ) -> None:
+    ) -> int:
         self.input_path = input_path
         self.audio_dir = audio_dir
         self.dry_run = dry_run
@@ -35,6 +35,7 @@ class AudioFileRenamer:
         self._build_index()
 
         index = self._fname_index
+        count = 0
         for p in audio_dir.iterdir():
             if self.stop_event.is_set():
                 break
@@ -43,12 +44,20 @@ class AudioFileRenamer:
             except KeyError:
                 continue
 
+            old = p.name
             if not dry_run:
-                shutil.move(p, p.with_stem(name))
+                new = p.with_stem(name)
+                shutil.move(p, new)
+                count += 1
+                logger.debug("Renamed %s -> %s", old, new)
+
+        logger.info("Renamed %d files", count)
+        return count
 
     def _build_index(self) -> None:
         gd = utils.read_gamedata(self.input_path)
         index = {}
         for clip in gd.audio_clips:
             index[clip.file_name] = clip.script_name
+        logger.debug("Built audio file name index")
         self._fname_index = index
